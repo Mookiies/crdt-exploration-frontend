@@ -158,3 +158,15 @@ const UpdateOrCreateInspection = () => {
 }
 
 export default Main;
+
+/*
+TODO List
+
+- [x] Add HLC implementation
+- [x] Maintain a local max HLC (done with exchange)
+- [x] Send timestamps along with requests (use exchange to post-fill local-HLC)
+
+- [] Sending timestamps based on congiuration/context
+- [] Sending updated timestamp only if field has changed
+- [] Sending whole patch
+ */
