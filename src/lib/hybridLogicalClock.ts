@@ -1,10 +1,9 @@
 /**
  * This implementation of the [Hybric Logical Clocks][1] paper was very much based
- * on [this go implementation][2] and [james long's demo][3]
+ * on [this go implementation][2]
  *
  * [1]: https://muratbuffalo.blogspot.com/2014/07/hybrid-logical-clocks.html
- * [2]: https://github.com/lafikl/hlc/blob/master/hlc.go
- * [3]: https://github.com/jlongster/crdt-example-app/blob/master/shared/timestamp.js
+ * [2]: https://raw.githubusercontent.com/jaredly/hybrid-logical-clocks-example/master/src/hlc.js
  */
 
 export type HLC = {
@@ -13,23 +12,27 @@ export type HLC = {
   node: string,
 };
 
+const VERSION = 'v01'
+
 export const pack = ({ ts, count, node }: HLC) => {
   // 13 digits is enough for the next 100 years, so this is probably fine
   return (
-    ts.toString().padStart(15, '0') +
+    ts.toString(36).padStart(15, '0') +
     ':' +
     count.toString(36).padStart(5, '0') +
     ':' +
-    node
+    node +
+    ':' +
+    VERSION
   );
 };
 
-export const unpack = (serialized: string) => {
-  const [ts, count, ...node] = serialized.split(':');
+export const unpack = (serialized: string): HLC => {
+  const [ts, count, node] = serialized.split(':');
   return {
     ts: parseInt(ts),
     count: parseInt(count, 36),
-    node: node.join(':'),
+    node,
   };
 };
 
@@ -40,7 +43,7 @@ export const init = (node: string, now: number): HLC => ({
 });
 
 export const cmp = (one: HLC, two: HLC) => {
-  if (one.ts == two.ts) {
+  if (one.ts === two.ts) {
     if (one.count === two.count) {
       if (one.node === two.node) {
         return 0;
@@ -73,22 +76,6 @@ export const recv = (local: HLC, remote: HLC, now: number): HLC => {
     return { ...local, ts: remote.ts, count: remote.count + 1 };
   }
 };
-
-// This impl is closer to the article's algorithm, but I find it a little trickier to explain.
-// export const recv = (time: HLC, remote: HLC, now: number): HLC => {
-//     const node = time.node;
-//     const ts = Math.max(time.ts, remote.ts, now);
-//     if (ts == time.ts && ts == remote.ts) {
-//         return { node, ts, count: Math.max(time.count, remote.count) + 1 };
-//     }
-//     if (ts == time.ts) {
-//         return { node, ts, count: time.count + 1 };
-//     }
-//     if (ts == remote.ts) {
-//         return { node, ts, count: remote.count + 1 };
-//     }
-//     return { node, ts, count: 0 };
-// };
 
 const validate = (time: HLC, now: number, maxDrift: number = 60 * 1000) => {
   if (time.count > Math.pow(36,5)) {
