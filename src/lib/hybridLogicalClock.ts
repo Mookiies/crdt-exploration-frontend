@@ -51,7 +51,7 @@ export default class HybridLogicalClock {
 
   increment(now: number) {
     if (now > this.ts) {
-      this.ts = 0;
+      this.ts = now;
       this.count = 0;
       return;
     }
