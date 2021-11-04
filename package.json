@@ -18,7 +18,8 @@
     "react-scripts": "4.0.3",
     "typescript": "^4.1.2",
     "urql": "^2.0.5",
-    "web-vitals": "^1.0.1"
+    "web-vitals": "^1.0.1",
+    "wonka": "^4.0.15"
   },
   "scripts": {
     "start": "PORT=3001 react-scripts start",
