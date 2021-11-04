@@ -10,8 +10,8 @@ const VERSION = 'v01'
 
 export default class HybridLogicalClock {
   readonly node: string;
-  readonly ts: number;
-  readonly count: number;
+  ts: number;
+  count: number;
 
   constructor(node: string, now: number, count = 0) {
     this.node = node;
@@ -51,24 +51,28 @@ export default class HybridLogicalClock {
 
   increment(now: number) {
     if (now > this.ts) {
-      return new HybridLogicalClock(this.node, now, 0);
+      this.ts = 0;
+      this.count = 0;
+      return;
     }
 
-
-    return new HybridLogicalClock(this.node, this.ts, this.count + 1);
+    this.count += 1;
   }
 
   receive(remote: HybridLogicalClock, now: number) {
     if (now > this.ts && now > remote.ts) {
-      return new HybridLogicalClock(this.node, now, 0);
+      this.ts = now;
+      this.count = 0;
+      return;
     }
 
     if (this.ts === remote.ts) {
-      return new HybridLogicalClock(this.node, this.ts, Math.max(this.count, remote.count) + 1);
+      this.count = Math.max(this.count, remote.count) + 1;
     } else if (this.ts > remote.ts) {
-      return new HybridLogicalClock(this.node, this.ts, this.count + 1);
+      this.count += 1;
     } else {
-      return new HybridLogicalClock(this.node, remote.ts, remote.count + 1);
+      this.ts = remote.ts;
+      this.count = remote.count + 1;
     }
   }
 
