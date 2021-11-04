@@ -6,84 +6,81 @@
  * [2]: https://raw.githubusercontent.com/jaredly/hybrid-logical-clocks-example/master/src/hlc.js
  */
 
-export type HLC = {
-  ts: number,
-  count: number,
-  node: string,
-};
-
 const VERSION = 'v01'
 
-export const pack = ({ ts, count, node }: HLC) => {
-  // 13 digits is enough for the next 100 years, so this is probably fine
-  return (
-    ts.toString(36).padStart(15, '0') +
-    ':' +
-    count.toString(36).padStart(5, '0') +
-    ':' +
-    node +
-    ':' +
-    VERSION
-  );
-};
+export default class HybridLogicalClock {
+  readonly node: string;
+  readonly ts: number;
+  readonly count: number;
 
-export const unpack = (serialized: string): HLC => {
-  const [ts, count, node] = serialized.split(':');
-  return {
-    ts: parseInt(ts),
-    count: parseInt(count, 36),
-    node,
-  };
-};
+  constructor(node: string, now: number, count = 0) {
+    this.node = node;
+    this.ts = now;
+    this.count = count;
+  }
 
-export const init = (node: string, now: number): HLC => ({
-  ts: now,
-  count: 0,
-  node,
-});
+  pack() {
+    return (
+      this.ts.toString(36).padStart(15, '0') +
+      ':' +
+      this.count.toString(36).padStart(5, '0') +
+      ':' +
+      this.node +
+      ':' +
+      VERSION
+    );
+  }
 
-export const cmp = (one: HLC, two: HLC) => {
-  if (one.ts === two.ts) {
-    if (one.count === two.count) {
-      if (one.node === two.node) {
-        return 0;
+  static unpack(serialized: string) {
+    const [ts, count, node] = serialized.split(':');
+    return new HybridLogicalClock(node, parseInt(ts, 36), parseInt(count, 36));
+  }
+
+  compare(other: HybridLogicalClock) {
+    if (this.ts === other.ts) {
+      if (this.count === other.count) {
+        if (this.node === other.node) {
+          return 0;
+        }
+        return this.node < other.node ? -1 : 1;
       }
-      return one.node < two.node ? -1 : 1;
+      return this.count - other.count;
     }
-    return one.count - two.count;
-  }
-  return one.ts - two.ts;
-};
-
-export const inc = (local: HLC, now: number): HLC => {
-  if (now > local.ts) {
-    return { ts: now, count: 0, node: local.node };
+    return this.ts - other.ts;
   }
 
-  return { ...local, count: local.count + 1 };
-};
+  increment(now: number) {
+    if (now > this.ts) {
+      return new HybridLogicalClock(this.node, now, 0);
+    }
 
-export const recv = (local: HLC, remote: HLC, now: number): HLC => {
-  if (now > local.ts && now > remote.ts) {
-    return { ...local, ts: now, count: 0 };
+
+    return new HybridLogicalClock(this.node, this.ts, this.count + 1);
   }
 
-  if (local.ts === remote.ts) {
-    return { ...local, count: Math.max(local.count, remote.count) + 1 };
-  } else if (local.ts > remote.ts) {
-    return { ...local, count: local.count + 1 };
-  } else {
-    return { ...local, ts: remote.ts, count: remote.count + 1 };
-  }
-};
+  receive(remote: HybridLogicalClock, now: number) {
+    if (now > this.ts && now > remote.ts) {
+      return new HybridLogicalClock(this.node, now, 0);
+    }
 
-const validate = (time: HLC, now: number, maxDrift: number = 60 * 1000) => {
-  if (time.count > Math.pow(36,5)) {
-    return 'counter-overflow';
+    if (this.ts === remote.ts) {
+      return new HybridLogicalClock(this.node, this.ts, Math.max(this.count, remote.count) + 1);
+    } else if (this.ts > remote.ts) {
+      return new HybridLogicalClock(this.node, this.ts, this.count + 1);
+    } else {
+      return new HybridLogicalClock(this.node, remote.ts, remote.count + 1);
+    }
   }
-  // if a timestamp is more than 1 minute off from our local wall clock, something has gone horribly wrong.
-  if (Math.abs(time.ts - now) > maxDrift) {
-    return 'clock-off';
-  }
-  return null;
-};
+
+  validate(now: number, maxDrift: number = 60 * 1000) {
+    if (this.count > Math.pow(36,5)) {
+      return 'counter-overflow';
+    }
+    // if a timestamp is more than 1 minute off from our local wall clock, something has gone horribly wrong.
+    if (Math.abs(this.ts - now) > maxDrift) {
+      return 'clock-off';
+    }
+    return null;
+  };
+
+}
