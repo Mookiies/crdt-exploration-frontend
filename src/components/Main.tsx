@@ -169,4 +169,9 @@ TODO List
 - [] Sending timestamps based on congiuration/context
 - [] Sending updated timestamp only if field has changed
 - [] Sending whole patch
+
+- [] updating local HLC on recieve mutation or query results
+- [] do we need to do any merging on the client for timestamp comparisons
+
+- [] stacking mutations
  */
