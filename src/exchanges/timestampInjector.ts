@@ -7,6 +7,38 @@ import type HybridLogicalClock from '../lib/hybridLogicalClock';
 export type TimestampInjectorExchange = {
   localHlc: HybridLogicalClock;
 };
+//
+// let timestampedFields = {
+//   ...operation.context,
+//   timestamped: {
+//     inspectionInput: {
+//       inspection: {
+//         timestampsAttributes: ['name', 'note'],
+//         areas: {
+//           timestampsAttributes: ['name', 'position'],
+//         }
+//       }
+//     }
+//   }
+// }
+
+// let fillMeInFields = {
+//     inspectionInput: {
+//       inspection: {
+//         _required: ['name', 'areas'],
+//         _timestamped: ['name'],
+//         areas: {
+//           _required: ['name', 'items'],
+//           items: {
+//             _required: ['name', 'position']
+//           }
+//         }
+//     }
+//   }
+// }
+// const generateTimestampedVariables = (contextMapping, variables) => {
+//
+// }
 
 export const timestampInjectorExchange = (options: TimestampInjectorExchange): Exchange => ({
                                                                                        forward,
@@ -16,17 +48,17 @@ export const timestampInjectorExchange = (options: TimestampInjectorExchange): E
   const timestampToInject = options.localHlc;
 
   const injectTimestamp = (operation: Operation): Operation => {
-    timestampToInject.increment(new Date().getTime())
-    const packedTs = timestampToInject.pack();
+    const packedTs = timestampToInject.increment(new Date().getTime()).pack();
 
 
     const inspection = operation.variables.inspectionInput.inspection;
-    const newInspection = { ...inspection, timestampsAttributes: { name: packedTs, note: packedTs }}
+    const newInspection = { ...inspection, timestampsAttributes: { name: packedTs, note: packedTs, test: 12345 }}
     const newVariables = {
       inspectionInput: {
         inspection: newInspection
       }
     }
+    debugger;
 
     return makeOperation(operation.kind, {...operation, variables: newVariables}, {
       ...operation.context,
