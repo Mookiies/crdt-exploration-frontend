@@ -4,6 +4,8 @@ import { offlineExchange } from '@urql/exchange-graphcache';
 import { Main } from './components'
 import {makeDefaultStorage} from '@urql/exchange-graphcache/default-storage';
 import {requestPolicyExchange} from '@urql/exchange-request-policy';
+import {timestampInjectorExchange} from './exchanges/timestampInjector';
+import { localHlc } from './lib';
 
 const storage = makeDefaultStorage({
   idbName: 'graphcache-v3', // The name of the IndexedDB database
@@ -26,7 +28,7 @@ const cache = offlineExchange({
 });
 const client = createClient({
   url: 'http://localhost:3000/graphql',
-  exchanges: [dedupExchange, requestPolicyExchange({}), cache, fetchExchange]
+  exchanges: [dedupExchange, timestampInjectorExchange({ localHlc }), requestPolicyExchange({}), cache, fetchExchange]
 });
 
 const App = () => (
