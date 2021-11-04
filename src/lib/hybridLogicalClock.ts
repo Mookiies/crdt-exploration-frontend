@@ -49,21 +49,22 @@ export default class HybridLogicalClock {
     return this.ts - other.ts;
   }
 
-  increment(now: number) {
+  increment(now: number): HybridLogicalClock {
     if (now > this.ts) {
       this.ts = now;
       this.count = 0;
-      return;
+      return this;
     }
 
     this.count += 1;
+    return this;
   }
 
-  receive(remote: HybridLogicalClock, now: number) {
+  receive(remote: HybridLogicalClock, now: number): HybridLogicalClock {
     if (now > this.ts && now > remote.ts) {
       this.ts = now;
       this.count = 0;
-      return;
+      return this;
     }
 
     if (this.ts === remote.ts) {
@@ -74,6 +75,8 @@ export default class HybridLogicalClock {
       this.ts = remote.ts;
       this.count = remote.count + 1;
     }
+
+    return this;
   }
 
   validate(now: number, maxDrift: number = 60 * 1000) {
