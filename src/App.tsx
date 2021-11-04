@@ -1,26 +1,38 @@
 import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import { createClient, Provider, dedupExchange, fetchExchange } from 'urql';
+import { offlineExchange } from '@urql/exchange-graphcache';
+import { Main } from './components'
+import {makeDefaultStorage} from '@urql/exchange-graphcache/default-storage';
+import {requestPolicyExchange} from '@urql/exchange-request-policy';
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
-}
+const storage = makeDefaultStorage({
+  idbName: 'graphcache-v3', // The name of the IndexedDB database
+  maxAge: 7, // The maximum age of the persisted data in days
+});
+const cache = offlineExchange({
+  storage,
+  keys: {
+    // @ts-ignore
+    Inspection: data => data.uuid,
+    // @ts-ignore
+    Area: data => data.uuid,
+    // @ts-ignore
+    Item: data => data.uuid,
+    // @ts-ignore
+    InspectionsTimestamp: data => null,
+    // @ts-ignore
+    AreasTimestamp: () => null
+  }
+});
+const client = createClient({
+  url: 'http://localhost:3000/graphql',
+  exchanges: [dedupExchange, requestPolicyExchange({}), cache, fetchExchange]
+});
+
+const App = () => (
+  <Provider value={client}>
+    <Main />
+  </Provider>
+);
 
 export default App;
