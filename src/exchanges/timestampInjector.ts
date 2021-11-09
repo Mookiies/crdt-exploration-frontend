@@ -58,7 +58,6 @@ export const timestampInjectorExchange = (options: TimestampInjectorExchange): E
         inspection: newInspection
       }
     }
-    debugger;
 
     return makeOperation(operation.kind, {...operation, variables: newVariables}, {
       ...operation.context,
