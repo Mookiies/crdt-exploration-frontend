@@ -3,7 +3,6 @@ import {useMutation, useQuery} from 'urql';
 
 const getAllInspectionsQuery = `query GetInspections {
   allInspections {
-    id
     name
     uuid
     note
@@ -29,23 +28,52 @@ const getAllInspectionsQuery = `query GetInspections {
   }
 }`
 
+const getSingleInspectionQuery = `
+query GetInspection($inspectionID: String!) {
+  inspection(uuid: $inspectionID) {
+    name
+    uuid
+    note
+    timestamps {
+      name
+      note
+    }
+    areas {
+      name
+      position
+      uuid
+      timestamps {
+        name
+        position
+      }
+      items {
+        uuid
+        name
+        note
+        flagged
+      }
+    }
+  }
+}
+`;
+
 const UpdateInspection = `
 mutation CreateOrUpdateInspection($inspectionInput: CreateOrUpdateInspectionInput!) {
   createOrUpdateInspection(input: $inspectionInput) {
     success
     errors
     inspection {
+      uuid
       name
       note
       timestamps {
         name
         note
       }
-      uuid
       areas {
+        uuid
         name
         position
-        uuid
         timestamps {
           name
           position
@@ -98,9 +126,12 @@ const generateVariable = (opts) => {
   }
 }
 
-const Main = () => {
+const SingleInspection = ({ inspectionID = 'cf4f5f36-63fc-4fa8-a945-2afcf1e593fa' }) => {
   const [result, reexecuteQuery] = useQuery({
-    query: getAllInspectionsQuery,
+    query: getSingleInspectionQuery,
+    variables: {
+      inspectionID
+    }
   });
 
   const {data, fetching, error} = result;
@@ -110,10 +141,37 @@ const Main = () => {
   if (error) return <p>Oh no... {error.message}</p>;
 
   return (
-    <div>
+    <div style={{backgroundColor: 'lightyellow'}}>
+      Single Result:
+      <pre>{JSON.stringify(data.inspection, undefined, 2)}</pre>
+    </div>
+  );
+}
+
+const Main = () => {
+  const [result, reexecuteQuery] = useQuery({
+    query: getAllInspectionsQuery,
+  });
+
+  const {data, fetching, error} = result;
+
+  const [showSingle, setShowSingle] = useState<boolean>(false);
+  const toggleShowSingle = React.useCallback(() => {
+    setShowSingle(v => !v);
+  }, []);
+
+
+  if (fetching) return <p>Loading...</p>;
+  if (error) return <p>Oh no... {error.message}</p>;
+
+  return (
+    <div style={{padding: '1rem'}}>
       Query Result:
       <pre>{JSON.stringify(data.allInspections, undefined, 2)}</pre>
-      <UpdateOrCreateInspection />
+      <UpdateOrCreateInspection/>
+
+      <button onClick={toggleShowSingle}>Show single query</button>
+      {showSingle && <SingleInspection />}
     </div>
   );
 }
@@ -143,23 +201,23 @@ const UpdateOrCreateInspection = () => {
   };
 
   return (
-    <>
-      <input type="text" placeholder={'setInspectionName'} onChange={e => setInspectionName(e.target.value)} />
-      <input type="text" placeholder={'setInspectionNote'} onChange={e => setInspectionNote(e.target.value)} />
-      <input type="text" placeholder={'setInspectionUuid'} onChange={e => setInspectionUuid(e.target.value)} />
+    <div style={{backgroundColor: 'lavender'}}>
+      <input type="text" placeholder={'setInspectionName'} onChange={e => setInspectionName(e.target.value)}/>
+      <input type="text" placeholder={'setInspectionNote'} onChange={e => setInspectionNote(e.target.value)}/>
+      <input type="text" placeholder={'setInspectionUuid'} onChange={e => setInspectionUuid(e.target.value)}/>
 
-      <input type="text" placeholder={'setAreaName'} onChange={e => setAreaName(e.target.value)} />
-      <input type="number" placeholder={'setAreaPosition'} onChange={e => setAreaPosition(e.target.valueAsNumber)} />
-      <input type="text" placeholder={'setAreaUuid'} onChange={e => setAreaUuid(e.target.value)} />
+      <input type="text" placeholder={'setAreaName'} onChange={e => setAreaName(e.target.value)}/>
+      <input type="number" placeholder={'setAreaPosition'} onChange={e => setAreaPosition(e.target.valueAsNumber)}/>
+      <input type="text" placeholder={'setAreaUuid'} onChange={e => setAreaUuid(e.target.value)}/>
       <button onClick={submit}>Send mutation</button>
       <br/>
       Mutation Result:
       <pre>{JSON.stringify(updateInspectionResult.data, undefined, 2)}</pre>
       Sent Variables:
-      <pre>{JSON.stringify(updateInspectionResult.operation?.variables, undefined, 2)}</pre>
+      <pre style={{backgroundColor: 'lightskyblue'}}>{JSON.stringify(updateInspectionResult.operation?.variables, undefined, 2)}</pre>
       Errors:
       <pre>{JSON.stringify(updateInspectionResult.error, undefined, 2)}</pre>
-    </>
+    </div>
   )
 }
 
@@ -172,7 +230,7 @@ TODO List
 - [x] Maintain a local max HLC (done with exchange)
 - [x] Send timestamps along with requests (use exchange to post-fill local-HLC)
 
-- [] Sending timestamps based on congiuration/context
+- [x] Sending timestamps based on congiuration/context
 - [] Sending updated timestamp only if field has changed
 - [] Sending whole patch
 
