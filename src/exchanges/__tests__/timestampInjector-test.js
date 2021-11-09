@@ -279,9 +279,44 @@ describe('injectTimestampVariables', () => {
     expect(res).toEqual(expected)
   });
 
+  it('supports undefined config', () => {
+    const source = {
+      one: 1
+    }
+
+
+    const res = injectTimestampVariables(source, undefined, mockTimestamp);
+    expect(res).toEqual(source)
+    expect(res).not.toBe(source)
+  })
+
+  it('supports handles empty objects', () => {
+    const res = injectTimestampVariables({}, undefined, mockTimestamp);
+    expect(res).toEqual({})
+  })
+
+  it('can handle unknown keys in config', () => {
+    const source = {
+      one: 1,
+      two: {
+        three: 3,
+      }
+    }
+
+    const toTimestamp = {
+      _timestamped: ['what'],
+      error: {
+        test: 123,
+      },
+      lol: 1,
+    }
+
+
+    const res = injectTimestampVariables(source, toTimestamp, mockTimestamp);
+    expect(res).toEqual(source)
+    expect(res).not.toBe(source)
+  })
   // More test cases
-  // empty object
-  // undefined top level
   // just top level stuff
   // super nested???
 });
