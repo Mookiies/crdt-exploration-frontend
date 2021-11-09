@@ -44,6 +44,7 @@ mutation CreateOrUpdateInspection($inspectionInput: CreateOrUpdateInspectionInpu
       uuid
       areas {
         name
+        position
         uuid
         timestamps {
           name
@@ -124,7 +125,7 @@ const UpdateOrCreateInspection = () => {
   const [inspectionNote, setInspectionNote] = useState<string | undefined>(undefined);
   const [inspectionUuid, setInspectionUuid] = useState<string | undefined>(undefined);
   const [areaName, setAreaName] = useState<string | undefined>(undefined);
-  const [areaNote, setAreaNote] = useState<string | undefined>(undefined);
+  const [areaPosition, setAreaPosition] = useState<number | undefined>(undefined);
   const [areaUuid, setAreaUuid] = useState<string | undefined>(undefined);
 
   const variables = generateVariable({
@@ -132,7 +133,7 @@ const UpdateOrCreateInspection = () => {
     inspectionNote,
     inspectionUuid,
     areaName,
-    areaNote,
+    areaPosition,
     areaUuid,
   });
   const submit = () => {
@@ -148,7 +149,7 @@ const UpdateOrCreateInspection = () => {
       <input type="text" placeholder={'setInspectionUuid'} onChange={e => setInspectionUuid(e.target.value)} />
 
       <input type="text" placeholder={'setAreaName'} onChange={e => setAreaName(e.target.value)} />
-      <input type="text" placeholder={'setAreaNote'} onChange={e => setAreaNote(e.target.value)} />
+      <input type="number" placeholder={'setAreaPosition'} onChange={e => setAreaPosition(e.target.valueAsNumber)} />
       <input type="text" placeholder={'setAreaUuid'} onChange={e => setAreaUuid(e.target.value)} />
       <button onClick={submit}>Send mutation</button>
       Mutation Result:
