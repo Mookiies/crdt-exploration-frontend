@@ -152,8 +152,13 @@ const UpdateOrCreateInspection = () => {
       <input type="number" placeholder={'setAreaPosition'} onChange={e => setAreaPosition(e.target.valueAsNumber)} />
       <input type="text" placeholder={'setAreaUuid'} onChange={e => setAreaUuid(e.target.value)} />
       <button onClick={submit}>Send mutation</button>
+      <br/>
       Mutation Result:
       <pre>{JSON.stringify(updateInspectionResult.data, undefined, 2)}</pre>
+      Sent Variables:
+      <pre>{JSON.stringify(updateInspectionResult.operation?.variables, undefined, 2)}</pre>
+      Errors:
+      <pre>{JSON.stringify(updateInspectionResult.error, undefined, 2)}</pre>
     </>
   )
 }
