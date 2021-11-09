@@ -7,7 +7,7 @@ import type HybridLogicalClock from '../lib/hybridLogicalClock';
 
 export type TimestampInjectorExchangeOpts = {
   localHlc: HybridLogicalClock;
-  fillConfig?: TimestampsConfig;
+  fillConfig?: any;
 };
 //
 // let timestampedFields = {
@@ -42,6 +42,7 @@ export type TimestampInjectorExchangeOpts = {
 //
 // }
 
+// TODO don't think these types really good enough
 interface TimestampBase {
   [key: string]: TimestampsConfig;
 }
@@ -52,7 +53,7 @@ type TimestampsObj = TimestampBase & {
 
 type TimestampsConfig = TimestampsObj | undefined;
 
-export const generateTimestamps = (source: any, config: TimestampsConfig, timestamp: string) => {
+export const generateTimestamps = (source: any, config: any, timestamp: string) => {
   if (!config) {
     return {};
   }
@@ -63,14 +64,14 @@ export const generateTimestamps = (source: any, config: TimestampsConfig, timest
   }
 
   const results: { [key: string]: string } = {};
-  timestampsToFill.forEach(key => {
+  timestampsToFill.forEach((key: any) => {
     key in source && (results[key] = timestamp)
   })
 
   return isEmpty(results) ? {} : { timestampsAttributes: { ...results } };
 }
 
-export const fillMeIn = (source: any, config: TimestampsConfig, timestamp: string) => {
+export const fillMeIn = (source: any, config: any, timestamp: string) => {
   if (Array.isArray(source)) {
     source.forEach(value => {
       fillMeIn(value, config, timestamp);
@@ -96,7 +97,7 @@ export const fillMeIn = (source: any, config: TimestampsConfig, timestamp: strin
   return levelResult;
 }
 
-export const injectTimestampVariables = (variables: any, config: TimestampsConfig, timestamp: string) => {
+export const injectTimestampVariables = (variables: any, config: any, timestamp: string) => {
   const sourceCopy = cloneDeep(variables);
   return fillMeIn(sourceCopy, config, timestamp);
 }
