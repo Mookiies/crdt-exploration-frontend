@@ -52,12 +52,12 @@ type TimestampsObj = TimestampBase & {
 
 type TimestampsConfig = TimestampsObj | undefined;
 
-export const generateTimestamps = (source: any, values: TimestampsConfig, timestamp: string) => {
-  if (!values) {
+export const generateTimestamps = (source: any, config: TimestampsConfig, timestamp: string) => {
+  if (!config) {
     return {};
   }
 
-  const timestampsToFill = values._timestamped
+  const timestampsToFill = config._timestamped
   if (!timestampsToFill) {
     return {};
   }
@@ -70,10 +70,10 @@ export const generateTimestamps = (source: any, values: TimestampsConfig, timest
   return isEmpty(results) ? {} : { timestampsAttributes: { ...results } };
 }
 
-export const fillMeIn = (source: any, values: TimestampsConfig, timestamp: string) => {
+export const fillMeIn = (source: any, config: TimestampsConfig, timestamp: string) => {
   if (Array.isArray(source)) {
     source.forEach(value => {
-      fillMeIn(value, values, timestamp);
+      fillMeIn(value, config, timestamp);
     })
   }
 
@@ -83,22 +83,22 @@ export const fillMeIn = (source: any, values: TimestampsConfig, timestamp: strin
 
   const levelResult = source;
 
-  const filledResults = generateTimestamps(source, values, timestamp);
+  const filledResults = generateTimestamps(source, config, timestamp);
   Object.assign(levelResult, filledResults);
 
   const keys = Object.keys(source);
   keys.forEach(key => {
     const nextSource = source[key];
-    const nextValues = values && values[key];
+    const nextValues = config && config[key];
     Object.assign(levelResult, { [key]: fillMeIn(nextSource, nextValues, timestamp) })
   })
 
   return levelResult;
 }
 
-export const injectTimestampVariables = (source: any, values: TimestampsConfig, timestamp: string) => {
-  const sourceCopy = cloneDeep(source);
-  return fillMeIn(sourceCopy, values, timestamp);
+export const injectTimestampVariables = (variables: any, config: TimestampsConfig, timestamp: string) => {
+  const sourceCopy = cloneDeep(variables);
+  return fillMeIn(sourceCopy, config, timestamp);
 }
 
 export const timestampInjectorExchange = (options: TimestampInjectorExchangeOpts): Exchange => ({
