@@ -108,18 +108,13 @@ export const timestampInjectorExchange = (options: TimestampInjectorExchangeOpts
                                                                                        dispatchDebug,
                                                                                      }) => {
   const timestampToInject = options.localHlc;
+  const fillConfig = options.fillConfig;
 
   const injectTimestamp = (operation: Operation): Operation => {
     const packedTs = timestampToInject.increment(new Date().getTime()).pack();
 
-
-    const inspection = operation.variables.inspectionInput.inspection;
-    const newInspection = { ...inspection, timestampsAttributes: { name: packedTs, note: packedTs, test: 12345 }}
-    const newVariables = {
-      inspectionInput: {
-        inspection: newInspection
-      }
-    }
+    const variables = operation.variables;
+    const newVariables = injectTimestampVariables(variables, fillConfig, packedTs);
 
     return makeOperation(operation.kind, {...operation, variables: newVariables}, {
       ...operation.context,

@@ -26,9 +26,26 @@ const cache = offlineExchange({
     AreasTimestamp: () => null
   }
 });
+
+const fillConfig = {
+    inspectionInput: {
+      inspection: {
+        // _required: ['name', 'areas'],
+        _timestamped: ['name', 'note'],
+        areasAttributes: {
+          _timestamped: ['name', 'position'],
+          // _required: ['name', 'items'],
+          itemsAttributes: {
+            _required: ['name', 'position']
+          }
+        }
+    }
+  }
+}
+
 const client = createClient({
   url: 'http://localhost:3000/graphql',
-  exchanges: [dedupExchange, timestampInjectorExchange({ localHlc }), requestPolicyExchange({}), cache, fetchExchange]
+  exchanges: [dedupExchange, timestampInjectorExchange({ localHlc, fillConfig }), requestPolicyExchange({}), cache, fetchExchange]
 });
 
 const App = () => (
