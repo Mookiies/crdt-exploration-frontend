@@ -32,8 +32,16 @@ export default class HybridLogicalClock {
   }
 
   static unpack(serialized: string) {
+    if(!this.isValidFormat(serialized)) {
+     throw new Error(`String: ${serialized} not a valid HLC`)
+    }
     const [ts, count, node] = serialized.split(':');
     return new HybridLogicalClock(node, parseInt(ts, 36), parseInt(count, 36));
+  }
+
+  static isValidFormat(serialized: any) {
+    return typeof serialized === 'string' && serialized.match(/[A-Za-z0-9]{15}:[A-Za-z0-9]{5}:.*:v01/)
+    // TODO improve regex to user the VERSION  constant
   }
 
   compare(other: HybridLogicalClock) {
