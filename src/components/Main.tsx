@@ -29,8 +29,8 @@ const getAllInspectionsQuery = `query GetInspections {
 }`
 
 const getSingleInspectionQuery = `
-query GetInspection($inspectionID: String!) {
-  inspection(uuid: $inspectionID) {
+query GetInspection($inspectionUuid: String!) {
+  inspection(uuid: $inspectionUuid) {
     name
     uuid
     note
@@ -126,11 +126,11 @@ const generateVariable = (opts) => {
   }
 }
 
-const SingleInspection = ({ inspectionID = 'cf4f5f36-63fc-4fa8-a945-2afcf1e593fa' }) => {
+const SingleInspection = ({ inspectionUuid = 'cf4f5f36-63fc-4fa8-a945-2afcf1e593fa' }) => {
   const [result, reexecuteQuery] = useQuery({
     query: getSingleInspectionQuery,
     variables: {
-      inspectionID
+      inspectionUuid
     }
   });
 
@@ -195,7 +195,14 @@ const UpdateOrCreateInspection = () => {
     areaUuid,
   });
   const submit = () => {
-    updateInspection(variables).then(result => {
+    updateInspection(variables,{
+      existingDataConfig: {
+        query: getSingleInspectionQuery,
+        variables: {
+          inspectionUuid: 'cf4f5f36-63fc-4fa8-a945-2afcf1e593fa'
+        }
+      }
+    }).then(result => {
       console.log('mutation result', result)
     });
   };
@@ -231,11 +238,11 @@ TODO List
 - [x] Send timestamps along with requests (use exchange to post-fill local-HLC)
 
 - [x] Sending timestamps based on congiuration/context
-- [] Sending updated timestamp only if field has changed
+- [kinda] Sending updated timestamp only if field has changed
 - [] Sending whole patch
 
-- [] updating local HLC on recieve mutation or query results
-- [] do we need to do any merging on the client for timestamp comparisons
+- [x] updating local HLC on recieve mutation or query results
+- [(no?)] do we need to do any merging on the client for timestamp comparisons
 
 - [] stacking mutations
  */

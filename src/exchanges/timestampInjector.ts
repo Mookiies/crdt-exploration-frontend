@@ -1,28 +1,14 @@
-import type { Exchange, Operation } from 'urql';
+import type {Exchange, Operation, OperationResult} from 'urql';
 
-import { filter, merge, pipe, tap, map, share } from 'wonka';
-import { makeOperation } from '@urql/core';
-import { isEmpty, cloneDeep } from 'lodash';
-import type HybridLogicalClock from '../lib/hybridLogicalClock';
+import {filter, merge, pipe, tap, map, share} from 'wonka';
+import {makeOperation, createRequest} from '@urql/core';
+import {isEmpty, cloneDeep} from 'lodash';
+import { HLC } from '../lib';
 
 export type TimestampInjectorExchangeOpts = {
-  localHlc: HybridLogicalClock;
+  localHlc: HLC;
   fillConfig?: any;
 };
-//
-// let timestampedFields = {
-//   ...operation.context,
-//   timestamped: {
-//     inspectionInput: {
-//       inspection: {
-//         timestampsAttributes: ['name', 'note'],
-//         areas: {
-//           timestampsAttributes: ['name', 'position'],
-//         }
-//       }
-//     }
-//   }
-// }
 
 // let fillMeInFields = {
 //     inspectionInput: {
@@ -37,9 +23,6 @@ export type TimestampInjectorExchangeOpts = {
 //         }
 //     }
 //   }
-// }
-// const generateTimestampedVariables = (contextMapping, variables) => {
-//
 // }
 
 // TODO don't think these types really good enough
@@ -68,7 +51,7 @@ export const generateTimestamps = (source: any, config: any, timestamp: string) 
     key in source && (results[key] = timestamp)
   })
 
-  return isEmpty(results) ? {} : { timestampsAttributes: { ...results } };
+  return isEmpty(results) ? {} : {timestampsAttributes: {...results}};
 }
 
 export const fillMeIn = (source: any, config: any, timestamp: string) => {
@@ -78,7 +61,7 @@ export const fillMeIn = (source: any, config: any, timestamp: string) => {
     })
   }
 
-  if (typeof source !== 'object' || source === null) {
+  if (!isObject(source)) {
     return source;
   }
 
@@ -91,7 +74,7 @@ export const fillMeIn = (source: any, config: any, timestamp: string) => {
   keys.forEach(key => {
     const nextSource = source[key];
     const nextValues = config && config[key];
-    Object.assign(levelResult, { [key]: fillMeIn(nextSource, nextValues, timestamp) })
+    Object.assign(levelResult, {[key]: fillMeIn(nextSource, nextValues, timestamp)})
   })
 
   return levelResult;
@@ -102,16 +85,56 @@ export const injectTimestampVariables = (variables: any, config: any, timestamp:
   return fillMeIn(sourceCopy, config, timestamp);
 }
 
+export const traverseAndUpdateHlc = (data: any, hlc: HLC, timestampsKey: string) => {
+  if (!data) {
+    return;
+  }
+
+  if (Array.isArray(data)) {
+    data.forEach(value => traverseAndUpdateHlc(value, hlc, timestampsKey))
+  }
+
+  if (!isObject(data)) {
+    return;
+  }
+
+  const keys = Object.keys(data);
+  keys.forEach(key => {
+    if (key === timestampsKey) {
+      updateHLCPerObjectField(data[key], hlc);
+    } else {
+      traverseAndUpdateHlc(data[key], hlc, timestampsKey)
+    }
+  })
+
+}
+
+export const updateHLCPerObjectField = (data: { [key: string]: string; }, hlc: HLC) => {
+  if (!isObject(data)) {
+    return;
+  }
+
+  Object.values(data).forEach(value => {
+    if (!HLC.isValidFormat(value)) {
+      return;
+    }
+
+    const valueHlc = HLC.unpack(value);
+    valueHlc.compare(hlc) >= 0 && hlc.receive(valueHlc, new Date().getTime())
+  })
+}
+
+export const isObject = (data: any) => typeof data === 'object' && data !== null
+
 export const timestampInjectorExchange = (options: TimestampInjectorExchangeOpts): Exchange => ({
-                                                                                       forward,
-                                                                                       client,
-                                                                                       dispatchDebug,
-                                                                                     }) => {
-  const timestampToInject = options.localHlc;
-  const fillConfig = options.fillConfig;
+                                                                                                  forward,
+                                                                                                  client,
+                                                                                                  dispatchDebug,
+                                                                                                }) => {
+  const { localHlc, fillConfig } = options;
 
   const injectTimestamp = (operation: Operation): Operation => {
-    const packedTs = timestampToInject.increment(new Date().getTime()).pack();
+    const packedTs = localHlc.increment(new Date().getTime()).pack();
 
     const variables = operation.variables;
     const newVariables = injectTimestampVariables(variables, fillConfig, packedTs);
@@ -121,12 +144,29 @@ export const timestampInjectorExchange = (options: TimestampInjectorExchangeOpts
     });
   }
 
+  const updateHlc = (result: OperationResult) => {
+    if (result.operation.kind === 'teardown' || result.operation.context.meta?.cacheOutcome === 'hit' || !result.data) {
+      // TODO how to initialize HLC to max value?
+      // Store in storage outside exchange and passed in (how would it get saved? built into class? wrapped?)
+      // Have it parse and update if it's the first time that an operation is seen but is a cache hit (could have potentially outdated things
+      return;
+    }
+
+
+    console.log('updateHLC::before', localHlc.pack())
+
+    traverseAndUpdateHlc(result.data, localHlc, 'timestamps'); //TODO key from config
+
+    console.log('updateHLC::after', localHlc.pack())
+
+  }
+
   return (operations$) => {
+    // TODO only split off what's needed
     const shared$ = pipe(operations$, share);
     const queries$ = pipe(
       shared$,
       filter((op) => op.kind === 'query'),
-      // TODO process every supported query and call recieve on localHLC for each timestamp (maybe only recieve when greater so as not to balloon count artificially)
     );
     const mutations$ = pipe(
       shared$,
@@ -138,8 +178,7 @@ export const timestampInjectorExchange = (options: TimestampInjectorExchangeOpts
       filter((op) => op.kind !== 'mutation' && op.kind !== 'query'),
     );
 
-    const forwarded$ = pipe(merge([mutations$, queries$, other$]), forward);
 
-    return merge([forwarded$]);
+    return pipe(merge([mutations$, queries$, other$]), forward, tap(updateHlc));
   };
 };
