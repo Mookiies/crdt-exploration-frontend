@@ -51,7 +51,7 @@ export const generateTimestamps = (source: any, config: any, timestamp: string) 
     key in source && (results[key] = timestamp)
   })
 
-  return isEmpty(results) ? {} : {timestampsAttributes: {...results}};
+  return isEmpty(results) ? {} : {timestamps: {...results}};
 }
 
 export const fillMeIn = (source: any, config: any, timestamp: string) => {

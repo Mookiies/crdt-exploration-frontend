@@ -96,12 +96,12 @@ const generateVariable = (opts) => {
         name: opts.inspectionName || "default",
         note: opts.inspectionNote || "default",
         "uuid": opts.inspectionUuid || "cf4f5f36-63fc-4fa8-a945-2afcf1e593fa",
-        "areasAttributes": [
+        "areas": [
           {
             "name": opts.areaName || "default",
             "uuid": opts.areaUuid || "2fe8d6d4-425f-478e-bf47-cac59ba3ca1d",
             "position": opts.areaPosition || 0,
-            "itemsAttributes": [
+            "items": [
               {
                 "name": "item",
                 "uuid": "c2863915-c860-47f9-9efd-eb18bf7b7b64"
