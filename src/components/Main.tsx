@@ -239,10 +239,18 @@ TODO List
 
 - [x] Sending timestamps based on congiuration/context
 - [kinda] Sending updated timestamp only if field has changed
-- [] Sending whole patch
 
 - [x] updating local HLC on recieve mutation or query results
 - [(no?)] do we need to do any merging on the client for timestamp comparisons
 
-- [] stacking mutations
+- [] rename so input and output types are the same (timestampsAttribute, areaAttributes, itemsAttributes)
+- [] deletions
+
+- [] Sending whole patch
+
+
+- [] stacking mutations (replaying mutations that would get cleared by failures)
+- [] error handling
+
+- [] validate timestamps???
  */
