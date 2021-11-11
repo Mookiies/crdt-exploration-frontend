@@ -220,10 +220,10 @@ const UpdateOrCreateInspection = () => {
       <br/>
       Mutation Result:
       <pre>{JSON.stringify(updateInspectionResult.data, undefined, 2)}</pre>
+      Errors:
+      <pre  style={{backgroundColor: 'lightsalmon'}}>{JSON.stringify(updateInspectionResult.error, undefined, 2)}</pre>
       Sent Variables:
       <pre style={{backgroundColor: 'lightskyblue'}}>{JSON.stringify(updateInspectionResult.operation?.variables, undefined, 2)}</pre>
-      Errors:
-      <pre>{JSON.stringify(updateInspectionResult.error, undefined, 2)}</pre>
     </div>
   )
 }
