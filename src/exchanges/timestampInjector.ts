@@ -1,7 +1,7 @@
 import type {Exchange, Operation, OperationResult} from 'urql';
 
 import {filter, merge, pipe, tap, map, share} from 'wonka';
-import {makeOperation, createRequest} from '@urql/core';
+import {makeOperation} from '@urql/core';
 import {isEmpty, cloneDeep} from 'lodash';
 import { HLC } from '../lib';
 
@@ -9,21 +9,6 @@ export type TimestampInjectorExchangeOpts = {
   localHlc: HLC;
   fillConfig?: any;
 };
-
-// let fillMeInFields = {
-//     inspectionInput: {
-//       inspection: {
-//         _required: ['name', 'areas'],
-//         _timestamped: ['name'],
-//         areas: {
-//           _required: ['name', 'items'],
-//           items: {
-//             _required: ['name', 'position']
-//           }
-//         }
-//     }
-//   }
-// }
 
 // TODO don't think these types really good enough
 interface TimestampBase {
@@ -147,38 +132,27 @@ export const timestampInjectorExchange = (options: TimestampInjectorExchangeOpts
   const updateHlc = (result: OperationResult) => {
     if (result.operation.kind === 'teardown' || result.operation.context.meta?.cacheOutcome === 'hit' || !result.data) {
       // TODO how to initialize HLC to max value?
-      // Store in storage outside exchange and passed in (how would it get saved? built into class? wrapped?)
+      // Store in storage outside exchange and passed in (how would it get saved? built into class? wrapped?) -- storage adapter
       // Have it parse and update if it's the first time that an operation is seen but is a cache hit (could have potentially outdated things
       return;
     }
 
-
-    console.log('updateHLC::before', localHlc.pack())
-
     traverseAndUpdateHlc(result.data, localHlc, 'timestamps'); //TODO key from config
-
-    console.log('updateHLC::after', localHlc.pack())
-
   }
 
   return (operations$) => {
-    // TODO only split off what's needed
     const shared$ = pipe(operations$, share);
-    const queries$ = pipe(
-      shared$,
-      filter((op) => op.kind === 'query'),
-    );
     const mutations$ = pipe(
       shared$,
       filter((op) => op.kind === 'mutation'),
       map(injectTimestamp)
     );
-    const other$ = pipe(
+    const rest$ = pipe(
       shared$,
-      filter((op) => op.kind !== 'mutation' && op.kind !== 'query'),
+      filter((op) => op.kind !== 'mutation'),
     );
 
 
-    return pipe(merge([mutations$, queries$, other$]), forward, tap(updateHlc));
+    return pipe(merge([mutations$, rest$]), forward, tap(updateHlc));
   };
 };
