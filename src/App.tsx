@@ -32,7 +32,7 @@ const fillConfig = {
       inspection: {
         // _required: ['name', 'areas'],
         _timestamped: ['name', 'note'],
-        areasAttributes: {
+        areas: {
           _timestamped: ['name', 'position'],
           // _required: ['name', 'items'],
           itemsAttributes: {
