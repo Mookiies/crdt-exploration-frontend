@@ -3,7 +3,9 @@ import type {Exchange, Operation, OperationResult} from 'urql';
 import {filter, merge, pipe, tap, map, share} from 'wonka';
 import {makeOperation} from '@urql/core';
 import {isEmpty, cloneDeep} from 'lodash';
+
 import { HLC } from '../lib';
+import {isObject} from './utils';
 
 export type TimestampInjectorExchangeOpts = {
   localHlc: HLC;
@@ -108,8 +110,6 @@ export const updateHLCPerObjectField = (data: { [key: string]: string; }, hlc: H
     valueHlc.compare(hlc) >= 0 && hlc.receive(valueHlc, new Date().getTime())
   })
 }
-
-export const isObject = (data: any) => typeof data === 'object' && data !== null
 
 export const timestampInjectorExchange = (options: TimestampInjectorExchangeOpts): Exchange => ({
                                                                                                   forward,
