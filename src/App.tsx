@@ -4,7 +4,8 @@ import { offlineExchange } from '@urql/exchange-graphcache';
 import { Main } from './components'
 import {makeDefaultStorage} from '@urql/exchange-graphcache/default-storage';
 import {requestPolicyExchange} from '@urql/exchange-request-policy';
-import {timestampInjectorExchange} from './exchanges/timestampInjector';
+import {timestampInjectorExchange} from './exchanges/timestampInjector'; // TODO index these
+import {patchExchange} from './exchanges/patchExchange';
 import { localHlc } from './lib';
 
 const storage = makeDefaultStorage({
@@ -27,25 +28,44 @@ const cache = offlineExchange({
   }
 });
 
-const fillConfig = {
+const timestampsConfig = {
+  // TODO would be better to base this off of mutation name not just variable name
     inspectionInput: {
       inspection: {
-        // _required: ['name', 'areas'],
         _timestamped: ['name', 'note'],
         areas: {
           _timestamped: ['name', 'position'],
-          // _required: ['name', 'items'],
           itemsAttributes: {
-            _required: ['name', 'position']
+            // _required: ['name', 'position']
           }
         }
+     }
     }
-  }
 }
+
+// const mergeConfig = {
+//   createOrUpdate: {
+//     variableName: 'inspectionInput',
+//     query: getSingleInspectionQuery,
+//     variables: (mutationInput) => {
+//       return {
+//         inspectionUuid: mutationInput.inspection.uuid,
+//       }
+//     }
+//   }
+// }
+
 
 const client = createClient({
   url: 'http://localhost:3000/graphql',
-  exchanges: [dedupExchange, timestampInjectorExchange({ localHlc, fillConfig }), requestPolicyExchange({}), cache, fetchExchange]
+  exchanges: [
+    dedupExchange,
+    timestampInjectorExchange({ localHlc, fillConfig: timestampsConfig }),
+    patchExchange({}),
+    requestPolicyExchange({}),
+    cache,
+    fetchExchange
+  ]
 });
 
 const App = () => (
