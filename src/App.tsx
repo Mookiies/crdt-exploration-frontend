@@ -28,18 +28,17 @@ const cache = offlineExchange({
 });
 
 const timestampsConfig = {
-  // TODO would be better to base this off of mutation name not just variable name
+  "CreateOrUpdateInspection": {
     inspectionInput: {
       inspection: {
         _timestamped: ['name', 'note'],
         areas: {
           _timestamped: ['name', 'position'],
-          itemsAttributes: {
-            // _required: ['name', 'position']
-          }
+          items: { },
         }
-     }
+      }
     }
+  }
 }
 
 // const mergeConfig = {

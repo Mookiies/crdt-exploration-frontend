@@ -5,7 +5,7 @@ import {makeOperation} from '@urql/core';
 import {isEmpty, cloneDeep} from 'lodash';
 
 import { HLC } from '../lib';
-import {isObject} from './utils';
+import {getOperationName, isObject} from './utils';
 
 export type TimestampInjectorExchangeOpts = {
   localHlc: HLC;
@@ -121,8 +121,13 @@ export const timestampExchange = (options: TimestampInjectorExchangeOpts): Excha
   const injectTimestamp = (operation: Operation): Operation => {
     const packedTs = localHlc.increment(new Date().getTime()).pack();
 
+    const operationName = getOperationName(operation);
+    if (!(operationName && fillConfig[operationName])) {
+      return operation;
+    }
+
     const variables = operation.variables;
-    const newVariables = injectTimestampVariables(variables, fillConfig, packedTs);
+    const newVariables = injectTimestampVariables(variables, fillConfig[operationName], packedTs);
 
     return makeOperation(operation.kind, {...operation, variables: newVariables}, {
       ...operation.context,
