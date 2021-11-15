@@ -6,6 +6,8 @@ import {makeDefaultStorage} from '@urql/exchange-graphcache/default-storage';
 import {requestPolicyExchange} from '@urql/exchange-request-policy';
 import {timestampExchange, patchExchange} from './exchanges';
 import { localHlc } from './lib';
+import type {PatchExchangeOpts} from './exchanges/patchExchange';
+import {getSingleInspectionQuery} from './components/Main';
 
 const storage = makeDefaultStorage({
   idbName: 'graphcache-v3', // The name of the IndexedDB database
@@ -41,17 +43,18 @@ const timestampsConfig = {
   }
 }
 
-// const mergeConfig = {
-//   createOrUpdate: {
-//     variableName: 'inspectionInput',
-//     query: getSingleInspectionQuery,
-//     variables: (mutationInput) => {
-//       return {
-//         inspectionUuid: mutationInput.inspection.uuid,
-//       }
-//     }
-//   }
-// }
+const mergeConfig: PatchExchangeOpts = {
+  "CreateOrUpdateInspection": {
+    existingData: (operation, client) => {
+     const vars = {
+       inspectionUuid: operation.variables.inspectionInput.inspection.uuid
+     };
+
+     return client.readQuery(getSingleInspectionQuery, vars);
+    },
+    variablePath: 'inspectionInput', // add some notes about using lodash get and set
+  }
+}
 
 
 const client = createClient({
@@ -59,7 +62,7 @@ const client = createClient({
   exchanges: [
     dedupExchange,
     timestampExchange({ localHlc, fillConfig: timestampsConfig }),
-    patchExchange({}),
+    patchExchange(mergeConfig),
     requestPolicyExchange({}),
     cache,
     fetchExchange

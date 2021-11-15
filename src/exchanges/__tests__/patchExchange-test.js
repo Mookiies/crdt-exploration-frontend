@@ -118,6 +118,14 @@ describe('patchExchange', () => {
 
       expect(mergeExisting(cacheRead.data, variablesInput.inspectionsInput)).toEqual(expected);
     })
+
+    it('does not mutation source', () => {
+      // TODO
+    })
+
+    it('does good job with undefined input', () => {
+      // TODO
+    })
   })
 
 })

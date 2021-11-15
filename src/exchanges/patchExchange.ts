@@ -1,14 +1,23 @@
-import type {Exchange, Operation} from 'urql';
+import type {Exchange, Operation, Client} from 'urql';
 
 import {filter, merge, pipe, map, share} from 'wonka';
 import {makeOperation} from '@urql/core';
-import {cloneDeep, isArray, values, keyBy, mergeWith} from 'lodash';
+import {cloneDeep, isArray, values, keyBy, mergeWith, get, set} from 'lodash';
+import {OperationResult} from '@urql/core/dist/types/types';
+import {getOperationName} from './utils';
 
 export type PatchExchangeOpts = {
-
+  [key: string]: MutationConfig;
 };
 
+export type MutationConfig = {
+  existingData: (operation: Operation, client: Client) => OperationResult | null;
+  variablePath: string;
+}
+
 export const mergeExisting = (existing: any, newValues: any) => {
+  // TODO Safety for dealing with undefined??
+
   const customizer = (objValue: any, srcValue: any): any => {
     if (isArray(objValue)) {
       return values(mergeWith(keyBy(objValue, 'uuid'), keyBy(srcValue, 'uuid'), customizer));
@@ -24,15 +33,18 @@ export const patchExchange = (options: PatchExchangeOpts): Exchange => ({
                                                                                                   dispatchDebug,
                                                                                                 }) => {
   const patchVariables = (operation: Operation): Operation => {
-    const existingDataConfig = operation.context.existingDataConfig;
+    const operationName = getOperationName(operation);
+    if (!(operationName && options[operationName])) {
+      return operation;
+    }
+    const opConfig = options[operationName];
 
-    const existingData = client.readQuery(existingDataConfig?.query, existingDataConfig?.variables);
-
+    const existingData = opConfig.existingData(operation, client);
     const { variables } = operation;
+    const mergeRes = mergeExisting(existingData?.data, get(variables, opConfig.variablePath))
+    const newVariables = set({}, opConfig.variablePath, mergeRes)
 
-    const mergeRes = mergeExisting(existingData?.data, variables.inspectionInput)
-
-    return makeOperation(operation.kind, {...operation, variables: { inspectionInput: mergeRes }}, {
+    return makeOperation(operation.kind, {...operation, variables: newVariables}, {
       ...operation.context,
     });
   }

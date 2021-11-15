@@ -28,7 +28,7 @@ const getAllInspectionsQuery = `query GetInspections {
   }
 }`
 
-const getSingleInspectionQuery = `
+export const getSingleInspectionQuery = `
 query GetInspection($inspectionUuid: String!) {
   inspection(uuid: $inspectionUuid) {
     name
@@ -195,14 +195,7 @@ const UpdateOrCreateInspection = () => {
     areaUuid,
   });
   const submit = () => {
-    updateInspection(variables,{
-      existingDataConfig: {
-        query: getSingleInspectionQuery,
-        variables: {
-          inspectionUuid: 'cf4f5f36-63fc-4fa8-a945-2afcf1e593fa'
-        }
-      }
-    }).then(result => {
+    updateInspection(variables).then(result => {
       console.log('mutation result', result)
     });
   };
