@@ -4,8 +4,7 @@ import { offlineExchange } from '@urql/exchange-graphcache';
 import { Main } from './components'
 import {makeDefaultStorage} from '@urql/exchange-graphcache/default-storage';
 import {requestPolicyExchange} from '@urql/exchange-request-policy';
-import {timestampInjectorExchange} from './exchanges/timestampInjector'; // TODO index these
-import {patchExchange} from './exchanges/patchExchange';
+import {timestampExchange, patchExchange} from './exchanges';
 import { localHlc } from './lib';
 
 const storage = makeDefaultStorage({
@@ -60,7 +59,7 @@ const client = createClient({
   url: 'http://localhost:3000/graphql',
   exchanges: [
     dedupExchange,
-    timestampInjectorExchange({ localHlc, fillConfig: timestampsConfig }),
+    timestampExchange({ localHlc, fillConfig: timestampsConfig }),
     patchExchange({}),
     requestPolicyExchange({}),
     cache,

@@ -111,7 +111,7 @@ export const updateHLCPerObjectField = (data: { [key: string]: string; }, hlc: H
   })
 }
 
-export const timestampInjectorExchange = (options: TimestampInjectorExchangeOpts): Exchange => ({
+export const timestampExchange = (options: TimestampInjectorExchangeOpts): Exchange => ({
                                                                                                   forward,
                                                                                                   client,
                                                                                                   dispatchDebug,

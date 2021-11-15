@@ -1,7 +1,7 @@
 import {cloneDeep} from 'lodash';
 
 
-import {injectTimestampVariables, traverseAndUpdateHlc} from '../timestampInjector';
+import {injectTimestampVariables, traverseAndUpdateHlc} from '../timestampExchange';
 import {HLC} from '../../lib';
 
 jest
