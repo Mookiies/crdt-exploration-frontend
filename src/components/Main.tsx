@@ -236,10 +236,12 @@ TODO List
 - [x] updating local HLC on recieve mutation or query results
 - [(no?)] do we need to do any merging on the client for timestamp comparisons
 
-- [] rename so input and output types are the same (timestampsAttribute, areaAttributes, itemsAttributes)
+- [x] base configurations on mutation name
+
+- [x] rename so input and output types are the same (timestampsAttribute, areaAttributes, itemsAttributes)
 - [] deletions
 
-- [] Sending whole patch
+- [x] Sending whole patch
 
 
 - [] stacking mutations (replaying mutations that would get cleared by failures)
