@@ -42,7 +42,7 @@ export const patchExchange = (options: PatchExchangeOpts): Exchange => ({
     const existingData = opConfig.existingData(operation, client);
     const { variables } = operation;
     const mergeRes = mergeExisting(existingData?.data, get(variables, opConfig.variablePath))
-    const newVariables = set({}, opConfig.variablePath, mergeRes)
+    const newVariables = set(variables, opConfig.variablePath, mergeRes)
 
     return makeOperation(operation.kind, {...operation, variables: newVariables}, {
       ...operation.context,
