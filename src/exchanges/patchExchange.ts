@@ -9,11 +9,9 @@ export type PatchExchangeOpts = {
 };
 
 export const mergeExisting = (existing: any, newValues: any) => {
-  const customizer = (objValue: any, srcValue: any) => {
+  const customizer = (objValue: any, srcValue: any): any => {
     if (isArray(objValue)) {
-      // @ts-ignore
-      return values(mergeWith(keyBy(objValue, 'uuid'), keyBy(srcValue, 'uuid')));
-      // return objValue.concat(srcValue);
+      return values(mergeWith(keyBy(objValue, 'uuid'), keyBy(srcValue, 'uuid'), customizer));
     }
   }
 
