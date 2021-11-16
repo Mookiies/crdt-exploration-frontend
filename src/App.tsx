@@ -15,11 +15,19 @@ import {merge, values, keyBy} from 'lodash';
 const updates = {
   Mutation: {
     // @ts-ignore
-    createOrUpdateInspection(result, _args, cache, _info) {
+    createOrUpdateInspection({createOrUpdateInspection}: any, _args, cache, _info) {
+      if (!createOrUpdateInspection) {
+        return;
+      }
+
       // @ts-ignore
       cache.updateQuery({query: getAllInspectionsQuery}, data => {
         const { allInspections } = data;
-        const merged = merge(keyBy(allInspections, 'uuid'), keyBy(result.createOrUpdateInspection.inspection, 'uuid'))
+        // TODO might need to be mergeWith with customizer
+        const merged = merge(
+          keyBy(allInspections, 'uuid'),
+          { [createOrUpdateInspection.inspection.uuid]: createOrUpdateInspection.inspection }
+        )
         const newList = values(merged);
 
         return { allInspections: newList };
