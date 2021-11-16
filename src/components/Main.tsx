@@ -151,7 +151,7 @@ const Main = () => {
   return (
     <div style={{padding: '1rem'}}>
       Query Result:
-      <pre>{JSON.stringify(data.allInspections, undefined, 2)}</pre>
+      {data.allInspections.map((inspection: any) => (<Inspection inspection={inspection} key={inspection.uuid} />))}
       <UpdateOrCreateInspection/>
 
       <button onClick={toggleShowSingle}>Show single query</button>
@@ -223,6 +223,29 @@ const UpdateOrCreateInspection = () => {
   )
 }
 
+const Inspection = ({ inspection }: any) => (
+  <div style={{ border: '2px solid red', margin: '.5rem .5rem'}}>
+    <div><strong>{inspection.uuid}</strong></div>
+    <div>Name: <strong>{inspection.name}</strong> -- {inspection.timestamps.name}</div>
+    <div>Note: <strong>{inspection.note}</strong> -- {inspection.timestamps.note}</div>
+    {inspection.areas.map((area: any) => <Area area={area} key={area.uuid} /> )}
+  </div>
+);
+
+const Area = ({ area }: any) => (
+  <div style={{ border: '2px solid green', margin: '.1rem'}}>
+    <div>{area.uuid}</div>
+    <div>Name: <strong>{area.name}</strong> -- {area.timestamps.name}</div>
+    <div>Position: <strong>{area.position + ''}</strong> -- {area.timestamps.position}</div>
+    {area.items.map((item: any) => <Item item={item} key={item.uuid} /> )}
+  </div>
+)
+
+const Item = ({ item }: any) => (
+  <div style={{ border: '2px solid blue', margin: '.1rem'}}>
+    <pre>{JSON.stringify(item, undefined, 2)}</pre>
+  </div>
+)
 export default Main;
 
 /*
