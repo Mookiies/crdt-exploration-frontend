@@ -147,14 +147,17 @@ export const timestampExchange = (options: TimestampInjectorExchangeOpts): Excha
 
   return (operations$) => {
     const shared$ = pipe(operations$, share);
+    // TODO dont' timestamp things that have already been timestamped (checking if there or saving keys)
+    // TODO could have custom offline exchange persist extra context
+    const isMutationToProcess = (op: Operation) => op.kind === 'mutation' && !op.context._timestamped
     const mutations$ = pipe(
       shared$,
-      filter((op) => op.kind === 'mutation'),
-      map(injectTimestamp)
+      filter(isMutationToProcess),
+      map(injectTimestamp),
     );
     const rest$ = pipe(
       shared$,
-      filter((op) => op.kind !== 'mutation'),
+      filter((op) => !isMutationToProcess(op)),
     );
 
 

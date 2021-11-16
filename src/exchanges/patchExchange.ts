@@ -28,10 +28,10 @@ export const mergeExisting = (existing: any, newValues: any) => {
 }
 
 export const patchExchange = (options: PatchExchangeOpts): Exchange => ({
-                                                                                                  forward,
-                                                                                                  client,
-                                                                                                  dispatchDebug,
-                                                                                                }) => {
+                                                                          forward,
+                                                                          client,
+                                                                          dispatchDebug,
+                                                                        }) => {
   const patchVariables = (operation: Operation): Operation => {
     const operationName = getOperationName(operation);
     if (!(operationName && options[operationName])) {

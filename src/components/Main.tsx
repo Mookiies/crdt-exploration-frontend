@@ -106,7 +106,7 @@ const generateVariable = (opts) => {
         ...(opts.inspectionUuid && { uuid: opts.inspectionUuid}),
         areas
       }
-    }
+    },
   }
 }
 
@@ -261,14 +261,13 @@ TODO List
 - [x] updating local HLC on recieve mutation or query results
 - [(no?)] do we need to do any merging on the client for timestamp comparisons
 
-- [x] base configurations on mutation name
+- [kinda] base configurations on mutation name (should be on actual schema name not custom one)
 
 - [x] rename so input and output types are the same (timestampsAttribute, areaAttributes, itemsAttributes)
-- [] deletions
-
 - [x] Sending whole patch
 
-
+- [] persiting way to not re-process mutations in timestamps and patchinggraphcache
+- [] deletions
 - [] stacking mutations (replaying mutations that would get cleared by failures)
 - [] error handling
 

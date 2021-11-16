@@ -8,7 +8,7 @@ import {timestampExchange, patchExchange} from './exchanges';
 import { localHlc } from './lib';
 import type {PatchExchangeOpts} from './exchanges/patchExchange';
 import {getSingleInspectionQuery, getAllInspectionsQuery} from './components/Main';
-import {merge, values, keyBy} from 'lodash';
+import {merge, values, keyBy, cloneDeep} from 'lodash';
 
 
 // Used so that the list of inspections is updated when a new inspection is created
@@ -36,6 +36,52 @@ const updates = {
   },
 };
 
+const optimistic = {
+  // @ts-ignore
+  createOrUpdateInspection:  (variables, cache, info) => {
+    console.log('optimistic: createOrUpdateInspection', variables)
+    const copy = cloneDeep(variables);
+
+    const inspection = {
+      ...copy.input.inspection,
+      __typename: 'Inspection',
+    }
+    inspection.name = inspection.name + ' - optimistic'
+    inspection.note = inspection.note + ' - optimistic'
+    inspection.timestamps.__typename = 'InspectionsTimestamp'
+
+    // @ts-ignore
+    inspection.areas = inspection.areas.map((area) => {
+      // @ts-ignore
+      area.items = area.items?.map(item => ({
+        ...item,
+        __typename: 'Item'
+      })) || []
+      // @ts-ignore
+      area.timestamps.__typename = 'AreasTimestamp'; //TODO get rid of timestamps typename
+
+      area.name = area.name + ' - optimistic'
+      area.position = area.position || null;
+      return {
+        ...area,
+        __typename: 'Area'
+      }
+    })
+
+    const res = {
+      __typename: 'CreateOrUpdateInspectionPayload',
+      success: false,
+      errors: [],
+      inspection
+    }
+
+    console.log('optimistic: createOrUpdateInspection result', res)
+
+    return res;
+  }
+};
+
+
 // Used so that the cache can do a `readQuery` and know how to resolve a query for a single inspection it hasn't seen yet.
 const resolvers = {
   Query: {
@@ -60,11 +106,13 @@ const cache = offlineExchange({
     Item: data => data.uuid,
     // @ts-ignore
     InspectionsTimestamp: data => null,
+    // todo don't have typename from server from timestamps
     // @ts-ignore
     AreasTimestamp: () => null
   },
   resolvers,
   updates,
+  optimistic,
 });
 
 const timestampsConfig = {
@@ -88,6 +136,7 @@ const mergeConfig: PatchExchangeOpts = {
        inspectionUuid: operation.variables.inspectionInput.inspection.uuid
      };
 
+     // TODO stacking???
      return client.readQuery(getSingleInspectionQuery, vars);
     },
     variablePath: 'inspectionInput', // add some notes about using lodash get and set
@@ -114,3 +163,9 @@ const App = () => (
 );
 
 export default App;
+
+// Replays
+// - how to persist what mutations have been played & therefore need to get replayed
+// - handling legit errors -- only clearing mutations from cache)
+// - do stacked mutations have a problem with getting filled with old data (shouldn't because timestamps are from old cache too)
+// - - What about edits that haven't hit the server yet? Existing data won't be in cache...

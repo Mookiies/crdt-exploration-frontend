@@ -68,7 +68,7 @@ export default class HybridLogicalClock {
     return this;
   }
 
-  receive(remote: HybridLogicalClock, now: number): HybridLogicalClock {
+  receive(remote: HybridLogicalClock, now: number): HybridLogicalClock { //TODO add default for now
     if (now > this.ts && now > remote.ts) {
       this.ts = now;
       this.count = 0;
