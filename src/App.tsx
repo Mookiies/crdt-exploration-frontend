@@ -7,14 +7,32 @@ import {requestPolicyExchange} from '@urql/exchange-request-policy';
 import {timestampExchange, patchExchange} from './exchanges';
 import { localHlc } from './lib';
 import type {PatchExchangeOpts} from './exchanges/patchExchange';
-import {getSingleInspectionQuery} from './components/Main';
+import {getSingleInspectionQuery, getAllInspectionsQuery} from './components/Main';
+import {merge, values, keyBy} from 'lodash';
 
 
+// Used so that the list of inspections is updated when a new inspection is created
+const updates = {
+  Mutation: {
+    // @ts-ignore
+    createOrUpdateInspection(result, _args, cache, _info) {
+      // @ts-ignore
+      cache.updateQuery({query: getAllInspectionsQuery}, data => {
+        const { allInspections } = data;
+        const merged = merge(keyBy(allInspections, 'uuid'), keyBy(result.createOrUpdateInspection.inspection, 'uuid'))
+        const newList = values(merged);
+
+        return { allInspections: newList };
+      });
+    },
+  },
+};
+
+// Used so that the cache can do a `readQuery` and know how to resolve a query for a single inspection it hasn't seen yet.
 const resolvers = {
   Query: {
     // @ts-ignore
     inspection: (_, args) => {
-      console.log('resolver', _, args)
       return { __typename: 'Inspection', uuid: args.uuid }
     },
   },
@@ -38,6 +56,7 @@ const cache = offlineExchange({
     AreasTimestamp: () => null
   },
   resolvers,
+  updates,
 });
 
 const timestampsConfig = {

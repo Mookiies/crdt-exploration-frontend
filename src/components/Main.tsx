@@ -2,7 +2,7 @@ import { isEmpty } from 'lodash';
 import React, {useState} from 'react';
 import {useMutation, useQuery} from 'urql';
 
-const getAllInspectionsQuery = `query GetInspections {
+export const getAllInspectionsQuery = `query GetInspections {
   allInspections {
     name
     uuid
