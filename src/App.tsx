@@ -9,6 +9,16 @@ import { localHlc } from './lib';
 import type {PatchExchangeOpts} from './exchanges/patchExchange';
 import {getSingleInspectionQuery} from './components/Main';
 
+
+const resolvers = {
+  Query: {
+    // @ts-ignore
+    inspection: (_, args) => {
+      console.log('resolver', _, args)
+      return { __typename: 'Inspection', uuid: args.uuid }
+    },
+  },
+};
 const storage = makeDefaultStorage({
   idbName: 'graphcache-v3', // The name of the IndexedDB database
   maxAge: 7, // The maximum age of the persisted data in days
@@ -26,7 +36,8 @@ const cache = offlineExchange({
     InspectionsTimestamp: data => null,
     // @ts-ignore
     AreasTimestamp: () => null
-  }
+  },
+  resolvers,
 });
 
 const timestampsConfig = {
