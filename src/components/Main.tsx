@@ -93,32 +93,14 @@ const generateVariable = (opts) => {
   return {
     "inspectionInput": {
       "inspection": {
-        name: opts.inspectionName || "default",
-        note: opts.inspectionNote || "default",
-        "uuid": opts.inspectionUuid || "cf4f5f36-63fc-4fa8-a945-2afcf1e593fa",
+        ...(opts.inspectionName && { name: opts.inspectionName}),
+        ...(opts.inspectionNote && { note: opts.inspectionNote}),
+        ...(opts.inspectionUuid && { uuid: opts.inspectionUuid}),
         "areas": [
           {
-            "name": opts.areaName || "default",
-            "uuid": opts.areaUuid || "2fe8d6d4-425f-478e-bf47-cac59ba3ca1d",
-            "position": opts.areaPosition || 0,
-            "items": [
-              {
-                "name": "item",
-                "uuid": "c2863915-c860-47f9-9efd-eb18bf7b7b64"
-              },
-              {
-                "uuid": "2f603a34-a494-4097-a653-e6fb9436b946",
-                "name": "item"
-              }
-            ]
-          },
-          {
-            "name": "area",
-            "uuid": "6b215ee8-c6ee-4f74-b5fa-6fae0205107d"
-          },
-          {
-            "name": "yezzir",
-            "uuid": "698d57a1-a95a-421d-998e-f51c76c6cb9f"
+            ...(opts.areaName && {name: opts.areaName}),
+            ...(opts.areaPosition && {position: opts.areaPosition}),
+            ...(opts.areaUuid && {uuid: opts.areaUuid}),
           }
         ]
       }
@@ -181,10 +163,10 @@ const UpdateOrCreateInspection = () => {
 
   const [inspectionName, setInspectionName] = useState<string | undefined>(undefined);
   const [inspectionNote, setInspectionNote] = useState<string | undefined>(undefined);
-  const [inspectionUuid, setInspectionUuid] = useState<string | undefined>(undefined);
+  const [inspectionUuid, setInspectionUuid] = useState<string>('cf4f5f36-63fc-4fa8-a945-2afcf1e593fa');
   const [areaName, setAreaName] = useState<string | undefined>(undefined);
   const [areaPosition, setAreaPosition] = useState<number | undefined>(undefined);
-  const [areaUuid, setAreaUuid] = useState<string | undefined>(undefined);
+  const [areaUuid, setAreaUuid] = useState<string>('6b215ee8-c6ee-4f74-b5fa-6fae0205107d');
 
   const variables = generateVariable({
     inspectionName,
@@ -202,13 +184,31 @@ const UpdateOrCreateInspection = () => {
 
   return (
     <div style={{backgroundColor: 'lavender'}}>
-      <input type="text" placeholder={'setInspectionName'} onChange={e => setInspectionName(e.target.value)}/>
-      <input type="text" placeholder={'setInspectionNote'} onChange={e => setInspectionNote(e.target.value)}/>
-      <input type="text" placeholder={'setInspectionUuid'} onChange={e => setInspectionUuid(e.target.value)}/>
+      <label>
+        Inspection name:
+        <input type="text" placeholder={'setInspectionName'} onChange={e => setInspectionName(e.target.value)}/>
+      </label>
+      <label>
+        Inspection note
+        <input type="text" placeholder={'setInspectionNote'} onChange={e => setInspectionNote(e.target.value)}/>
+      </label>
+      <label>
+        inspection UUID
+        <input value={inspectionUuid} type="text" placeholder={'setInspectionUuid'} onChange={e => setInspectionUuid(e.target.value)}/>
+      </label>
 
-      <input type="text" placeholder={'setAreaName'} onChange={e => setAreaName(e.target.value)}/>
-      <input type="number" placeholder={'setAreaPosition'} onChange={e => setAreaPosition(e.target.valueAsNumber)}/>
-      <input type="text" placeholder={'setAreaUuid'} onChange={e => setAreaUuid(e.target.value)}/>
+      <label>
+        Area Name
+        <input type="text" placeholder={'setAreaName'} onChange={e => setAreaName(e.target.value)}/>
+      </label>
+      <label>
+        Area Position
+        <input type="number" placeholder={'setAreaPosition'} onChange={e => setAreaPosition(e.target.valueAsNumber)}/>
+      </label>
+      <label>
+        Area UUID
+        <input value={areaUuid} type="text" placeholder={'setAreaUuid'} onChange={e => setAreaUuid(e.target.value)}/>
+      </label>
       <button onClick={submit}>Send mutation</button>
       <br/>
       Mutation Result:
