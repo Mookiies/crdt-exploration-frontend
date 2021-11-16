@@ -11,3 +11,19 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+label {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  padding: .5rem;
+}
+
+input {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+div {
+  padding: .5rem;
+}
