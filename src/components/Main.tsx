@@ -1,3 +1,4 @@
+import { isEmpty } from 'lodash';
 import React, {useState} from 'react';
 import {useMutation, useQuery} from 'urql';
 
@@ -90,19 +91,20 @@ mutation CreateOrUpdateInspection($inspectionInput: CreateOrUpdateInspectionInpu
 
 // @ts-ignore
 const generateVariable = (opts) => {
+  const area = {
+    ...(opts.areaName && {name: opts.areaName}),
+    ...(opts.areaPosition && {position: opts.areaPosition}),
+    ...(opts.areaUuid && {uuid: opts.areaUuid}),
+  }
+  const areas = isEmpty(area) ? [] : [area]
+
   return {
     "inspectionInput": {
       "inspection": {
         ...(opts.inspectionName && { name: opts.inspectionName}),
         ...(opts.inspectionNote && { note: opts.inspectionNote}),
         ...(opts.inspectionUuid && { uuid: opts.inspectionUuid}),
-        "areas": [
-          {
-            ...(opts.areaName && {name: opts.areaName}),
-            ...(opts.areaPosition && {position: opts.areaPosition}),
-            ...(opts.areaUuid && {uuid: opts.areaUuid}),
-          }
-        ]
+        areas
       }
     }
   }
