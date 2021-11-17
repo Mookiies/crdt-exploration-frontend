@@ -92,6 +92,7 @@ mutation CreateOrUpdateInspection($inspectionInput: CreateOrUpdateInspectionInpu
 // @ts-ignore
 const generateVariable = (opts) => {
   const area = {
+    position: null,
     ...(opts.areaName && {name: opts.areaName}),
     ...(opts.areaPosition && {position: opts.areaPosition}),
     ...(opts.areaUuid && {uuid: opts.areaUuid}),

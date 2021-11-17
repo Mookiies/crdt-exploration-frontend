@@ -37,9 +37,10 @@ const updates = {
 };
 
 const optimistic = {
+  // This function should do a better job of making sure that all required feilds are present
+  // null !== undefined (ex not sending position will cause errors here)
   // @ts-ignore
   createOrUpdateInspection:  (variables, cache, info) => {
-    console.log('optimistic: createOrUpdateInspection', variables)
     const copy = cloneDeep(variables);
 
     const inspection = {
