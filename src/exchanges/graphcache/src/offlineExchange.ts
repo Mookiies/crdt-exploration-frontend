@@ -27,6 +27,8 @@ import {
   CacheExchangeOpts,
 } from './types';
 
+import { pick } from 'lodash';
+
 import { makeDict } from './helpers/dict';
 import { cacheExchange } from './cacheExchange';
 import { toRequestPolicy } from './helpers/operation';
@@ -66,10 +68,10 @@ const isOfflineError = (error: undefined | CombinedError) =>
       error.networkError.message
     ));
 
-export const offlineExchange = <C extends Partial<CacheExchangeOpts>>(
+export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persistedContext: Array<string>}>(
   opts: C
 ): Exchange => input => {
-  const { storage } = opts;
+  const { storage, persistedContext } = opts;
 
   if (
     storage &&
@@ -90,6 +92,7 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts>>(
           requests.push({
             query: print(operation.query),
             variables: operation.variables,
+            context: pick(operation.context, persistedContext),
           });
         }
       }
@@ -143,7 +146,8 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts>>(
           failedQueue.push(
             client.createRequestOperation(
               'mutation',
-              createRequest(mutations[i].query, mutations[i].variables)
+              createRequest(mutations[i].query, mutations[i].variables),
+              mutations[i].context,
             )
           );
         }

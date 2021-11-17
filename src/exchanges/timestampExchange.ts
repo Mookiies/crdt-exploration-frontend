@@ -111,6 +111,8 @@ export const updateHLCPerObjectField = (data: { [key: string]: string; }, hlc: H
   })
 }
 
+export const PROCESSED_OPERATION_KEY = '_timestamped';
+
 export const timestampExchange = (options: TimestampInjectorExchangeOpts): Exchange => ({
                                                                                                   forward,
                                                                                                   client,
@@ -131,6 +133,7 @@ export const timestampExchange = (options: TimestampInjectorExchangeOpts): Excha
 
     return makeOperation(operation.kind, {...operation, variables: newVariables}, {
       ...operation.context,
+      [PROCESSED_OPERATION_KEY]: true
     });
   }
 
@@ -147,9 +150,7 @@ export const timestampExchange = (options: TimestampInjectorExchangeOpts): Excha
 
   return (operations$) => {
     const shared$ = pipe(operations$, share);
-    // TODO dont' timestamp things that have already been timestamped (checking if there or saving keys)
-    // TODO could have custom offline exchange persist extra context
-    const isMutationToProcess = (op: Operation) => op.kind === 'mutation' && !op.context._timestamped
+    const isMutationToProcess = (op: Operation) => op.kind === 'mutation' && !op.context[PROCESSED_OPERATION_KEY]
     const mutations$ = pipe(
       shared$,
       filter(isMutationToProcess),

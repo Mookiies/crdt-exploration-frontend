@@ -27,6 +27,8 @@ export const mergeExisting = (existing: any, newValues: any) => {
   return mergeWith(cloneDeep(existing), cloneDeep(newValues), customizer)
 }
 
+export const PROCESSED_OPERATION_KEY = '_patched';
+
 export const patchExchange = (options: PatchExchangeOpts): Exchange => ({
                                                                           forward,
                                                                           client,
@@ -46,19 +48,21 @@ export const patchExchange = (options: PatchExchangeOpts): Exchange => ({
 
     return makeOperation(operation.kind, {...operation, variables: newVariables}, {
       ...operation.context,
+      [PROCESSED_OPERATION_KEY]: true,
     });
   }
 
   return (operations$) => {
     const shared$ = pipe(operations$, share);
+    const isMutationToProcess = (op: Operation) => op.kind === 'mutation' && !op.context[PROCESSED_OPERATION_KEY]
     const mutations$ = pipe(
       shared$,
-      filter((op) => op.kind === 'mutation'),
+      filter(isMutationToProcess),
       map(patchVariables)
     );
     const rest$ = pipe(
       shared$,
-      filter((op) => op.kind !== 'mutation'),
+      filter((op) => !isMutationToProcess(op)),
     );
 
 

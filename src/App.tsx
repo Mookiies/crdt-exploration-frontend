@@ -1,12 +1,12 @@
 import React from 'react';
 import { createClient, Provider, dedupExchange, fetchExchange } from 'urql';
-import { offlineExchange } from '@urql/exchange-graphcache';
+import { offlineExchange } from './exchanges/graphcache/src';
 import { Main } from './components'
-import {makeDefaultStorage} from '@urql/exchange-graphcache/default-storage';
+import {makeDefaultStorage} from './exchanges/graphcache/src/default-storage';
 import {requestPolicyExchange} from '@urql/exchange-request-policy';
-import {timestampExchange, patchExchange} from './exchanges';
+import {timestampExchange, patchExchange, PATCH_PROCESSED_OPERATION_KEY, TIMESTAMPS_PROCESSED_OPERATION_KEY} from './exchanges';
 import { localHlc } from './lib';
-import type {PatchExchangeOpts} from './exchanges/patchExchange';
+import type {PatchExchangeOpts} from './exchanges/patchExchange'; // TODO export
 import {getSingleInspectionQuery, getAllInspectionsQuery} from './components/Main';
 import {merge, values, keyBy, cloneDeep} from 'lodash';
 
@@ -92,6 +92,10 @@ const resolvers = {
     },
   },
 };
+const persistedContext = [
+  PATCH_PROCESSED_OPERATION_KEY,
+  TIMESTAMPS_PROCESSED_OPERATION_KEY
+]
 const storage = makeDefaultStorage({
   idbName: 'graphcache-v3', // The name of the IndexedDB database
   maxAge: 7, // The maximum age of the persisted data in days
@@ -114,6 +118,7 @@ const cache = offlineExchange({
   resolvers,
   updates,
   optimistic,
+  persistedContext,
 });
 
 const timestampsConfig = {

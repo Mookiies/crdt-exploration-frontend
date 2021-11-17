@@ -267,7 +267,7 @@ TODO List
 - [x] rename so input and output types are the same (timestampsAttribute, areaAttributes, itemsAttributes)
 - [x] Sending whole patch
 
-- [] persiting way to not re-process mutations in timestamps and patchinggraphcache
+- [x] persiting way to not re-process mutations in timestamps and patchinggraphcache
 - [] deletions
 - [] stacking mutations (replaying mutations that would get cleared by failures)
 - [] error handling
