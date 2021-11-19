@@ -97,7 +97,7 @@ const generateVariable = (opts) => {
     ...(opts.areaPosition && {position: opts.areaPosition}),
     ...(opts.areaUuid && {uuid: opts.areaUuid}),
   }
-  const areas = isEmpty(area) ? [] : [area]
+  const areas = area.position === null ? [] : [area]
 
   return {
     "inspectionInput": {
