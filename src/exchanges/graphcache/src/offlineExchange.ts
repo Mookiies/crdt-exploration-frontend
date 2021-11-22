@@ -1,5 +1,5 @@
-import { pipe, merge, makeSubject, share, filter } from 'wonka';
-import { print, SelectionNode } from 'graphql';
+import {pipe, merge, makeSubject, share, filter, tap} from 'wonka';
+import {print, SelectionNode} from 'graphql';
 
 import {
   Operation,
@@ -73,6 +73,13 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
 ): Exchange => input => {
   const { storage, persistedContext } = opts;
 
+  /*
+  TODO list
+  [] - replace failed queue with the inFlightOperations queue (rename to pending queue)
+        this is going to be non-optimal because we'll be resending (that's fine solve later)
+        can persist operations right away
+   */
+
   if (
     storage &&
     storage.onOnline &&
@@ -83,6 +90,7 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
     const { source: reboundOps$, next } = makeSubject<Operation>();
     const optimisticMutations = opts.optimistic || {};
     const failedQueue: Operation[] = [];
+    const inFlightOperations = new Map<number, Operation>();
 
     const updateMetadata = () => {
       const requests: SerializedRequest[] = [];
@@ -120,22 +128,84 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
       }
     };
 
+    /*
+    Determining if operation is a failures
+    - network errors should never count (unless their status codes are something we know is doomed)
+    - graphql errors are less likely to be recoverable
+    - should there be one config that is passed in as config
+    shouldReplay: op => true || false
+
+    [] - Operations can have cache results while still in flight
+    [] - Operations can have errors but also have data --> should we support this?
+     */
+    const isRetryableError = (res) => {
+      return isOfflineError(res.error);
+    }
+
+    const isUnretryableOptimisticMutation = (res) => {
+      const { operation } = res;
+      return operation.kind === 'mutation' && isOptimisticMutation(optimisticMutations, operation) && res.error && !isRetryableError(res.operation)
+    }
+
     const forward: ExchangeIO = ops$ => {
       return pipe(
-        outerForward(ops$),
+        outerForward(
+          pipe(
+            ops$,
+            tap((op) => {
+              if (op.kind === 'mutation' && isOptimisticMutation(optimisticMutations, op)) {
+                inFlightOperations.set(op.key, op)
+              }
+            }),
+          )
+        ),
         filter(res => {
           if (
             res.operation.kind === 'mutation' &&
-            isOfflineError(res.error) &&
+            isRetryableError(res) &&
             isOptimisticMutation(optimisticMutations, res.operation)
           ) {
             failedQueue.push(res.operation);
+            // TODO we are only saving data on failures (this could be issue)?
             updateMetadata();
             return false;
           }
 
           return true;
-        })
+        }),
+        tap(res => {
+          if(res.operation.kind === 'mutation' && isOptimisticMutation(optimisticMutations, res.operation) && !res.error) {
+            console.log('delete valid response', res)
+           inFlightOperations.delete(res.operation.key);
+          }
+        }),
+        tap((res) => {
+          if (isOptimisticMutation(optimisticMutations, res.operation) && res.error) {
+            // Handle genuine failure for optimisic and replay operations
+            inFlightOperations.delete(res.operation.key);
+
+            for (const op of inFlightOperations.values()) {
+              next(makeOperation('teardown', op));
+            }
+            for (const op of inFlightOperations.values()) {
+              console.log('retry this', op);
+              inFlightOperations.delete(op.key);
+              // TODO later consider not re-excuting because some request may already be outstanding
+              client.reexecuteOperation(op)
+            }
+
+            //   const x = inFlightOperations.
+            //   for (let i = 0; i < failedQueue.length; i++) {
+            //     const operation = failedQueue[i];
+            //     if (operation.kind === 'mutation') {
+            //       next(makeOperation('teardown', operation));
+            //     }
+            //   }
+            //
+            //   for (let i = 0; i < failedQueue.length; i++)
+            //     client.reexecuteOperation(failedQueue[i]);
+          }
+        }),
       );
     };
 
@@ -176,7 +246,10 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
           }
 
           return true;
-        })
+        }),
+        // tap((res) => {
+        //   console.log('offlineExchange tap', res.operation.key, res, inFlightOperations)
+        // })
       );
     };
   }
