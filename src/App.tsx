@@ -139,7 +139,6 @@ const mergeConfig: PatchExchangeOpts = {
        inspectionUuid: operation.variables.inspectionInput.inspection.uuid
      };
 
-     // TODO stacking???
      return client.readQuery(getSingleInspectionQuery, vars);
     },
     variablePath: 'inspectionInput', // add some notes about using lodash get and set
@@ -167,8 +166,10 @@ const App = () => (
 
 export default App;
 
-// Replays
-// - how to persist what mutations have been played & therefore need to get replayed
-// - handling legit errors -- only clearing mutations from cache)
-// - do stacked mutations have a problem with getting filled with old data (shouldn't because timestamps are from old cache too)
-// - - What about edits that haven't hit the server yet? Existing data won't be in cache...
+/*
+Problems with the current solution:
+
+- Bad data gets into cache all subsequent mutations are going to get populated with that data as well. (not an isolated delta)
+- Had to copy over graphcache (could limit to just offlineExchange)
+-
+ */

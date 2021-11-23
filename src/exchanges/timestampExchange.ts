@@ -93,7 +93,6 @@ export const traverseAndUpdateHlc = (data: any, hlc: HLC, timestampsKey: string)
       traverseAndUpdateHlc(data[key], hlc, timestampsKey)
     }
   })
-
 }
 
 export const updateHLCPerObjectField = (data: { [key: string]: string; }, hlc: HLC) => {
@@ -145,7 +144,7 @@ export const timestampExchange = (options: TimestampInjectorExchangeOpts): Excha
       return;
     }
 
-    traverseAndUpdateHlc(result.data, localHlc, 'timestamps'); //TODO key from config
+    traverseAndUpdateHlc(result.data, localHlc, 'timestamps');
   }
 
   return (operations$) => {

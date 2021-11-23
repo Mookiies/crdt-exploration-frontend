@@ -249,27 +249,39 @@ const Item = ({ item }: any) => (
 export default Main;
 
 /*
-TODO List
+TODO List -- whole project
 
 - [x] Add HLC implementation
 - [x] Maintain a local max HLC (done with exchange)
 - [x] Send timestamps along with requests (use exchange to post-fill local-HLC)
 
 - [x] Sending timestamps based on congiuration/context
-- [kinda] Sending updated timestamp only if field has changed
+- [x] Sending updated timestamp only if field has changed (if variable present will timestamp it)
 
 - [x] updating local HLC on recieve mutation or query results
 - [(no?)] do we need to do any merging on the client for timestamp comparisons
 
-- [kinda] base configurations on mutation name (should be on actual schema name not custom one)
+- [kinda] base configurations on mutation name (kinda b/c should be on actual schema name not custom one)
 
 - [x] rename so input and output types are the same (timestampsAttribute, areaAttributes, itemsAttributes)
 - [x] Sending whole patch
 
 - [x] persiting way to not re-process mutations in timestamps and patchinggraphcache
+- [] initializing hlc to max value (persisted)
 - [] deletions
-- [] stacking mutations (replaying mutations that would get cleared by failures)
-- [] error handling
+- [x] stacking mutations (replaying mutations that would get cleared by failures)
+- [] error handling (re-retryable vs not)
+- [] tests
+   - <> for each individual exchange
+   - <> create end to end with all our exchanges in order
+   - <> things arriving out of order
 
 - [] validate timestamps???
+- [] using same time ruby vs js
+- [] DSL'ing the timestamp stuff in ruby
+
+Non-MVP TODOs
+- [] batching/throttling requests
+- [] not resending mutations when one fails
+- [] are inspections (or other data) getting cleared from optimistic layer and retried going to cause UI problems
  */

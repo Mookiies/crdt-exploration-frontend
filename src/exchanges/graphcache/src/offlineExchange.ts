@@ -129,7 +129,7 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
     };
 
     /*
-    Determining if operation is a failures
+    TODO Determining if operation is a failures
     - network errors should never count (unless their status codes are something we know is doomed)
     - graphql errors are less likely to be recoverable
     - should there be one config that is passed in as config
@@ -142,6 +142,7 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
       return isOfflineError(res.error);
     }
 
+    // TODO use thie logic
     const isUnretryableOptimisticMutation = (res) => {
       const { operation } = res;
       return operation.kind === 'mutation' && isOptimisticMutation(optimisticMutations, operation) && res.error && !isRetryableError(res.operation)
@@ -180,6 +181,7 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
           }
         }),
         tap((res) => {
+          // TODO use isUnretryableOptimisticMutation
           if (isOptimisticMutation(optimisticMutations, res.operation) && res.error) {
             // Handle genuine failure for optimisic and replay operations
             inFlightOperations.delete(res.operation.key);
