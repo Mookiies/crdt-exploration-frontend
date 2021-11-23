@@ -125,6 +125,10 @@ describe('offline', () => {
       key: 2,
       query: mutationOne,
       variables: {},
+    }, {
+      key1: 'key1 data',
+      key2: 'key2 data',
+      key3: 'key3 data',
     });
 
     const response = jest.fn(
@@ -154,8 +158,8 @@ describe('offline', () => {
     pipe(
       offlineExchange({
         storage,
-        persistedContext: [],
-        isRetryableError: () => false,
+        persistedContext: ['key1', 'key2'],
+        isRetryableError: () => true,
         optimistic: {
           updateAuthor: () => ({
             id: '123',
@@ -183,9 +187,12 @@ describe('offline', () => {
     name
     __typename
   }
-}
-`,
+}`,
         variables: {},
+        context: {
+          key1: 'key1 data',
+          key2: 'key2 data',
+        },
       },
     ]);
 
@@ -227,7 +234,11 @@ describe('offline', () => {
     storage.writeMetadata.mockReturnValueOnce({ then: () => undefined });
 
     pipe(
-      offlineExchange({ storage })({ forward, client, dispatchDebug })(ops$),
+      offlineExchange({
+        storage,
+        persistedContext: [],
+        isRetryableError: () => true,
+      })({ forward, client, dispatchDebug })(ops$),
       tap(result),
       publish
     );
@@ -291,6 +302,8 @@ describe('offline', () => {
     pipe(
       offlineExchange({
         storage,
+        persistedContext: [],
+        isRetryableError: () => true,
         optimistic: {
           updateAuthor: () => ({
             id: '123',
@@ -313,9 +326,9 @@ describe('offline', () => {
     name
     __typename
   }
-}
-`,
+}`,
         variables: {},
+        context: {},
       },
     ]);
 
@@ -326,4 +339,18 @@ describe('offline', () => {
       formatDocument(mutationOp.query)
     );
   });
+
+
 });
+
+// persisted context test
+// [x] only chooses keys that come in config
+
+// Change to inflightOperations (can probably combine some of these)
+// [] updating metadata when a mutation hasn't failed yet
+// [] deleted from inflight when a valid mutaion comes back
+// [] deleted when it's an unretryable error
+// [] persisted if it's an error that can be retried
+
+// Retries
+// []
