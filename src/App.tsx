@@ -22,7 +22,7 @@ const updates = {
 
       // @ts-ignore
       cache.updateQuery({query: getAllInspectionsQuery}, data => {
-        const { allInspections } = data;
+        const allInspections = data?.allInspections || [];
         // TODO might need to be mergeWith with customizer
         const merged = merge(
           keyBy(allInspections, 'uuid'),
