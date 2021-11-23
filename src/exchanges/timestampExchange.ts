@@ -7,7 +7,7 @@ import {isEmpty, cloneDeep} from 'lodash';
 import { HLC } from '../lib';
 import {getOperationName, isObject} from './utils';
 
-export type TimestampInjectorExchangeOpts = {
+export type TimestampExchangeOpts = {
   localHlc: HLC;
   fillConfig?: any;
 };
@@ -112,7 +112,12 @@ export const updateHLCPerObjectField = (data: { [key: string]: string; }, hlc: H
 
 export const PROCESSED_OPERATION_KEY = '_timestamped';
 
-export const timestampExchange = (options: TimestampInjectorExchangeOpts): Exchange => ({
+/**
+ * Manages HLC timestamps
+ * - injects timestamps into requests according to given config
+ * - parses results an examines all `timestamp` objects to update local HLC
+ */
+export const timestampExchange = (options: TimestampExchangeOpts): Exchange => ({
                                                                                                   forward,
                                                                                                   client,
                                                                                                   dispatchDebug,
@@ -137,7 +142,8 @@ export const timestampExchange = (options: TimestampInjectorExchangeOpts): Excha
   }
 
   const updateHlc = (result: OperationResult) => {
-    if (result.operation.kind === 'teardown' || result.operation.context.meta?.cacheOutcome === 'hit' || !result.data) {
+    // if (result.operation.kind === 'teardown' || result.operation.context.meta?.cacheOutcome === 'hit' || !result.data) {
+    if (result.operation.kind === 'teardown' || !result.data) {
       // TODO how to initialize HLC to max value?
       // Store in storage outside exchange and passed in (how would it get saved? built into class? wrapped?) -- storage adapter
       // Have it parse and update if it's the first time that an operation is seen but is a cache hit (could have potentially outdated things

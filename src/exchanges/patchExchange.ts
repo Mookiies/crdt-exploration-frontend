@@ -29,6 +29,10 @@ export const mergeExisting = (existing: any, newValues: any) => {
 
 export const PROCESSED_OPERATION_KEY = '_patched';
 
+/**
+ * Merges current cache state with operation variables to create an mutation that is a whole patch. Allows for operations
+ * to be sent with only changed variables, but for resulting mutation to contain those omitted variables.
+ */
 export const patchExchange = (options: PatchExchangeOpts): Exchange => ({
                                                                           forward,
                                                                           client,
