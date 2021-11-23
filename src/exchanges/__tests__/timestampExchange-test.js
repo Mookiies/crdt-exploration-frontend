@@ -47,14 +47,14 @@ describe('timestampsExchange', () => {
           "existing": 123,
           "other": null,
           array: [{ }, { a: 1}],
-          "timestampsAttributes": {
+          "timestamps": {
             "existing": "mockTimestamp",
             "other": "mockTimestamp",
             "undi": "mockTimestamp"
           },
           "two": {
             "three": {},
-            "timestampsAttributes": {
+            "timestamps": {
               "three": "mockTimestamp"
             }
           },
@@ -141,18 +141,18 @@ describe('timestampsExchange', () => {
       const expected = {
         arr: [
           { one: 1,
-            timestampsAttributes: {
+            timestamps: {
               one: mockTimestamp,
             },
           },
           { one: 1,
-            timestampsAttributes: {
+            timestamps: {
               one: mockTimestamp,
             },
           },
         ],
         one: {
-          timestampsAttributes: {
+          timestamps: {
             one: mockTimestamp,
             two: mockTimestamp
           },
@@ -221,7 +221,7 @@ describe('timestampsExchange', () => {
         inspectionsInput: {
           name: 'name',
           other: 'other',
-          timestampsAttributes: {
+          timestamps: {
             name: mockTimestamp,
             other: mockTimestamp,
           },
@@ -229,7 +229,7 @@ describe('timestampsExchange', () => {
             {
               name: 'area - 1',
               other: 'other',
-              timestampsAttributes: {
+              timestamps: {
                 name: mockTimestamp,
                 other: mockTimestamp,
               },
@@ -237,7 +237,7 @@ describe('timestampsExchange', () => {
                 {
                   name: 'item - 1',
                   other: 'other',
-                  timestampsAttributes: {
+                  timestamps: {
                     name: mockTimestamp,
                     other: mockTimestamp,
                   },
@@ -245,7 +245,7 @@ describe('timestampsExchange', () => {
                 {
                   name: 'item - 2',
                   other: 'other',
-                  timestampsAttributes: {
+                  timestamps: {
                     name: mockTimestamp,
                     other: mockTimestamp,
                   },
@@ -255,7 +255,7 @@ describe('timestampsExchange', () => {
             {
               name: 'area - 2',
               other: 'other',
-              timestampsAttributes: {
+              timestamps: {
                 name: mockTimestamp,
                 other: mockTimestamp,
               },
@@ -263,7 +263,7 @@ describe('timestampsExchange', () => {
                 {
                   name: 'item - 3',
                   other: 'other',
-                  timestampsAttributes: {
+                  timestamps: {
                     name: mockTimestamp,
                     other: mockTimestamp,
                   },
@@ -271,7 +271,7 @@ describe('timestampsExchange', () => {
                 {
                   name: 'item - 4',
                   other: 'other',
-                  timestampsAttributes: {
+                  timestamps: {
                     name: mockTimestamp,
                     other: mockTimestamp,
                   },
