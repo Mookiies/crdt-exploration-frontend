@@ -47,8 +47,6 @@ const optimistic = {
       ...copy.input.inspection,
       __typename: 'Inspection',
     }
-    inspection.name = inspection.name + ' - optimistic'
-    inspection.note = inspection.note + ' - optimistic'
     inspection.timestamps.__typename = 'InspectionsTimestamp'
 
     // @ts-ignore
@@ -61,7 +59,6 @@ const optimistic = {
       // @ts-ignore
       area.timestamps.__typename = 'AreasTimestamp'; //TODO get rid of timestamps typename
 
-      area.name = area.name + ' - optimistic'
       area.position = area.position || null;
       return {
         ...area,
