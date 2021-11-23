@@ -283,5 +283,6 @@ TODO List -- whole project
 Non-MVP TODOs
 - [] batching/throttling requests
 - [] not resending mutations when one fails
+- [] resending same mutation multiple times (inFlightOperations from offlineExchange)
 - [] are inspections (or other data) getting cleared from optimistic layer and retried going to cause UI problems
  */

@@ -59,7 +59,7 @@ const isOptimisticMutation = <T extends OptimisticMutationConfig>(
   return false;
 };
 
-const isOfflineError = (error: undefined | CombinedError) =>
+export const isOfflineError = (error: undefined | CombinedError) =>
   error &&
   error.networkError &&
   !error.response &&
@@ -73,13 +73,6 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
 ): Exchange => input => {
   const { storage, persistedContext } = opts;
 
-  /*
-  TODO list
-  [] - replace failed queue with the inFlightOperations queue (rename to pending queue)
-        this is going to be non-optimal because we'll be resending (that's fine solve later)
-        can persist operations right away
-   */
-
   if (
     storage &&
     storage.onOnline &&
@@ -89,13 +82,11 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
     const { forward: outerForward, client, dispatchDebug } = input;
     const { source: reboundOps$, next } = makeSubject<Operation>();
     const optimisticMutations = opts.optimistic || {};
-    const failedQueue: Operation[] = [];
     const inFlightOperations = new Map<number, Operation>();
 
     const updateMetadata = () => {
       const requests: SerializedRequest[] = [];
-      for (let i = 0; i < failedQueue.length; i++) {
-        const operation = failedQueue[i];
+      for (const operation of inFlightOperations.values()) {
         if (operation.kind === 'mutation') {
           requests.push({
             query: print(operation.query),
@@ -109,20 +100,20 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
 
     let isFlushingQueue = false;
     const flushQueue = () => {
+      // TODO have a retry mode for doing optimistic mutations, another for doing failures?
       if (!isFlushingQueue) {
         isFlushingQueue = true;
 
-        for (let i = 0; i < failedQueue.length; i++) {
-          const operation = failedQueue[i];
+        for (const operation of inFlightOperations.values()) {
           if (operation.kind === 'mutation') {
             next(makeOperation('teardown', operation));
           }
         }
 
-        for (let i = 0; i < failedQueue.length; i++)
-          client.reexecuteOperation(failedQueue[i]);
+        for (const operation of inFlightOperations.values())
+          client.reexecuteOperation(operation);
 
-        failedQueue.length = 0;
+        inFlightOperations.clear();
         isFlushingQueue = false;
         updateMetadata();
       }
@@ -156,6 +147,7 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
             tap((op) => {
               if (op.kind === 'mutation' && isOptimisticMutation(optimisticMutations, op)) {
                 inFlightOperations.set(op.key, op)
+                updateMetadata();
               }
             }),
           )
@@ -166,9 +158,6 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
             isRetryableError(res) &&
             isOptimisticMutation(optimisticMutations, res.operation)
           ) {
-            failedQueue.push(res.operation);
-            // TODO we are only saving data on failures (this could be issue)?
-            updateMetadata();
             return false;
           }
 
@@ -178,6 +167,7 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
           if(res.operation.kind === 'mutation' && isOptimisticMutation(optimisticMutations, res.operation) && !res.error) {
             console.log('delete valid response', res)
            inFlightOperations.delete(res.operation.key);
+            updateMetadata();
           }
         }),
         tap((res) => {
@@ -186,26 +176,7 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
             // Handle genuine failure for optimisic and replay operations
             inFlightOperations.delete(res.operation.key);
 
-            for (const op of inFlightOperations.values()) {
-              next(makeOperation('teardown', op));
-            }
-            for (const op of inFlightOperations.values()) {
-              console.log('retry this', op);
-              inFlightOperations.delete(op.key);
-              // TODO later consider not re-excuting because some request may already be outstanding
-              client.reexecuteOperation(op)
-            }
-
-            //   const x = inFlightOperations.
-            //   for (let i = 0; i < failedQueue.length; i++) {
-            //     const operation = failedQueue[i];
-            //     if (operation.kind === 'mutation') {
-            //       next(makeOperation('teardown', operation));
-            //     }
-            //   }
-            //
-            //   for (let i = 0; i < failedQueue.length; i++)
-            //     client.reexecuteOperation(failedQueue[i]);
+            flushQueue();
           }
         }),
       );
@@ -215,13 +186,12 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
     storage.readMetadata().then(mutations => {
       if (mutations) {
         for (let i = 0; i < mutations.length; i++) {
-          failedQueue.push(
-            client.createRequestOperation(
-              'mutation',
-              createRequest(mutations[i].query, mutations[i].variables),
-              mutations[i].context,
-            )
+          const operation = client.createRequestOperation(
+            'mutation',
+            createRequest(mutations[i].query, mutations[i].variables),
+            mutations[i].context,
           );
+          inFlightOperations.set(operation.key, operation)
         }
 
         flushQueue();
@@ -243,15 +213,12 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
         filter(res => {
           if (res.operation.kind === 'query' && isOfflineError(res.error)) {
             next(toRequestPolicy(res.operation, 'cache-only'));
-            failedQueue.push(res.operation);
+            inFlightOperations.set(res.operation.key, res.operation);
             return false;
           }
 
           return true;
         }),
-        // tap((res) => {
-        //   console.log('offlineExchange tap', res.operation.key, res, inFlightOperations)
-        // })
       );
     };
   }
