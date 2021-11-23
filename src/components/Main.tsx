@@ -277,7 +277,7 @@ TODO List -- whole project
    - <> things arriving out of order
 
 - [] validate timestamps???
-- [] using same time ruby vs js
+- [x] using same time ruby vs js
 - [] DSL'ing the timestamp stuff in ruby
 
 Non-MVP TODOs
