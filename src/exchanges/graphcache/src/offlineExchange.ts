@@ -32,6 +32,7 @@ import { pick } from 'lodash';
 import { makeDict } from './helpers/dict';
 import { cacheExchange } from './cacheExchange';
 import { toRequestPolicy } from './helpers/operation';
+import type {OperationResult} from 'urql';
 
 /** Determines whether a given query contains an optimistic mutation field */
 const isOptimisticMutation = <T extends OptimisticMutationConfig>(
@@ -68,10 +69,13 @@ export const isOfflineError = (error: undefined | CombinedError) =>
       error.networkError.message
     ));
 
-export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persistedContext: Array<string>}>(
+export const offlineExchange = <C extends Partial<CacheExchangeOpts> & {
+  persistedContext: Array<string>,
+  isRetryableError: (res: OperationResult) => boolean
+}>(
   opts: C
 ): Exchange => input => {
-  const { storage, persistedContext } = opts;
+  const { storage, persistedContext, isRetryableError } = opts;
 
   if (
     storage &&
@@ -119,24 +123,12 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
       }
     };
 
-    /*
-    TODO Determining if operation is a failures
-    - network errors should never count (unless their status codes are something we know is doomed)
-    - graphql errors are less likely to be recoverable
-    - should there be one config that is passed in as config
-    shouldReplay: op => true || false
-
-    [] - Operations can have cache results while still in flight
-    [] - Operations can have errors but also have data --> should we support this?
-     */
-    const isRetryableError = (res) => {
-      return isOfflineError(res.error);
-    }
-
-    // TODO use thie logic
-    const isUnretryableOptimisticMutation = (res) => {
-      const { operation } = res;
-      return operation.kind === 'mutation' && isOptimisticMutation(optimisticMutations, operation) && res.error && !isRetryableError(res.operation)
+    const isUnretryableOptimisticMutation = (res: OperationResult) => {
+      const { operation, error } = res;
+      return operation.kind === 'mutation' &&
+        isOptimisticMutation(optimisticMutations, operation) &&
+        error &&
+        !isRetryableError(res)
     }
 
     const forward: ExchangeIO = ops$ => {
@@ -153,10 +145,12 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
           )
         ),
         filter(res => {
+          // Don't let optimistic mutations that should be retried make it to graphcache and clear optimistic layer
           if (
             res.operation.kind === 'mutation' &&
-            isRetryableError(res) &&
-            isOptimisticMutation(optimisticMutations, res.operation)
+            res.error &&
+            isOptimisticMutation(optimisticMutations, res.operation) &&
+            isRetryableError(res)
           ) {
             return false;
           }
@@ -164,18 +158,16 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & { persist
           return true;
         }),
         tap(res => {
+          // Handle valid responses from optimistic mutations. Delete from inFlightOperations
           if(res.operation.kind === 'mutation' && isOptimisticMutation(optimisticMutations, res.operation) && !res.error) {
-            console.log('delete valid response', res)
            inFlightOperations.delete(res.operation.key);
-            updateMetadata();
+           updateMetadata();
           }
         }),
         tap((res) => {
-          // TODO use isUnretryableOptimisticMutation
-          if (isOptimisticMutation(optimisticMutations, res.operation) && res.error) {
-            // Handle genuine failure for optimisic and replay operations
+          // Handle optimistic mutation that is non-retryable. Replay mutations to restore optimistic layer
+          if (isUnretryableOptimisticMutation(res)) {
             inFlightOperations.delete(res.operation.key);
-
             flushQueue();
           }
         }),

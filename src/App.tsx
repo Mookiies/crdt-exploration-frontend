@@ -1,5 +1,5 @@
 import React from 'react';
-import { createClient, Provider, dedupExchange, fetchExchange } from 'urql';
+import {createClient, Provider, dedupExchange, fetchExchange, OperationResult} from 'urql';
 import { offlineExchange } from './exchanges/graphcache/src';
 import { Main } from './components'
 import {makeDefaultStorage} from './exchanges/graphcache/src/default-storage';
@@ -9,6 +9,7 @@ import { localHlc } from './lib';
 import type {PatchExchangeOpts} from './exchanges/patchExchange'; // TODO export
 import {getSingleInspectionQuery, getAllInspectionsQuery} from './components/Main';
 import {merge, values, keyBy, cloneDeep} from 'lodash';
+import {isOfflineError} from './exchanges/graphcache/src/offlineExchange';
 
 
 // Used so that the list of inspections is updated when a new inspection is created
@@ -92,7 +93,21 @@ const resolvers = {
 const persistedContext = [
   PATCH_PROCESSED_OPERATION_KEY,
   TIMESTAMPS_PROCESSED_OPERATION_KEY
-]
+];
+/*
+TODO Determining if operation is a failures
+- network errors should never count (unless their status codes are something we know is doomed)
+- graphql errors are less likely to be recoverable
+- should there be one config that is passed in as config
+shouldReplay: op => true || false
+
+[] - Operations can have cache results while still in flight
+[] - Operations can have errors but also have data --> should we support this?
+ */
+const isRetryableError = (res: OperationResult): boolean => {
+  // TODO what is ts's problem with this being boolean | undefined???
+  return !!isOfflineError(res.error);
+}
 const storage = makeDefaultStorage({
   idbName: 'graphcache-v3', // The name of the IndexedDB database
   maxAge: 7, // The maximum age of the persisted data in days
@@ -116,6 +131,7 @@ const cache = offlineExchange({
   updates,
   optimistic,
   persistedContext,
+  isRetryableError,
 });
 
 const timestampsConfig = {
