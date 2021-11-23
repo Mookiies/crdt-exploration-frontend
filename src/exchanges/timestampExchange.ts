@@ -4,7 +4,7 @@ import {filter, merge, pipe, tap, map, share} from 'wonka';
 import {makeOperation} from '@urql/core';
 import {isEmpty, cloneDeep} from 'lodash';
 
-import { HLC } from '../lib';
+import {getCurrentTime, HLC} from '../lib';
 import {getOperationName, isObject} from './utils';
 
 export type TimestampExchangeOpts = {
@@ -106,7 +106,7 @@ export const updateHLCPerObjectField = (data: { [key: string]: string; }, hlc: H
     }
 
     const valueHlc = HLC.unpack(value);
-    valueHlc.compare(hlc) >= 0 && hlc.receive(valueHlc, new Date().getTime())
+    valueHlc.compare(hlc) >= 0 && hlc.receive(valueHlc, getCurrentTime())
   })
 }
 
@@ -125,7 +125,7 @@ export const timestampExchange = (options: TimestampExchangeOpts): Exchange => (
   const { localHlc, fillConfig } = options;
 
   const injectTimestamp = (operation: Operation): Operation => {
-    const packedTs = localHlc.increment(new Date().getTime()).pack();
+    const packedTs = localHlc.increment(getCurrentTime()).pack();
 
     const operationName = getOperationName(operation);
     if (!(operationName && fillConfig[operationName])) {

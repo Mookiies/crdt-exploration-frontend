@@ -1,5 +1,6 @@
 import HLC from './hybridLogicalClock'
 
-const localHlc = new HLC('my-client', new Date().getTime());
+const getCurrentTime = () => Math.floor(Date.now() / 100000)
+const localHlc = new HLC('my-client', getCurrentTime())
 
-export { localHlc, HLC };
+export { localHlc, getCurrentTime, HLC };

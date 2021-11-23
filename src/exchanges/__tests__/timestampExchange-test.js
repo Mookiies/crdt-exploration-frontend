@@ -2,7 +2,7 @@ import {cloneDeep} from 'lodash';
 
 
 import {injectTimestampVariables, traverseAndUpdateHlc} from '../timestampExchange';
-import {HLC} from '../../lib';
+import {getCurrentTime, HLC} from '../../lib';
 
 jest
   .useFakeTimers('modern')
@@ -329,7 +329,7 @@ describe('timestampsExchange', () => {
   })
 
   describe('parseAndUpdateHlc', () => {
-    const now = new Date().getTime();
+    const now = getCurrentTime();
     const node = 'node';
     let localHlc;
 
