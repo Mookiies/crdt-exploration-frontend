@@ -24,7 +24,18 @@ export const mergeExisting = (existing: any, newValues: any) => {
     }
   }
 
-  return mergeWith(cloneDeep(existing), cloneDeep(newValues), customizer)
+  const res = mergeWith(cloneDeep(existing), cloneDeep(newValues), customizer)
+
+  // Filter out any __typename fields. These can arise from results of a read query
+  const serialized = JSON.stringify(res, (key, value) => {
+    if (key === '__typename') {
+      return undefined;
+    }
+
+    return value;
+  })
+
+  return JSON.parse(serialized)
 }
 
 export const PROCESSED_OPERATION_KEY = '_patched';
