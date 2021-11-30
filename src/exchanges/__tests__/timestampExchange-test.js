@@ -161,7 +161,7 @@ describe('timestampsExchange', () => {
       return pipe(ops$, map(response));
     };
 
-    const options = { localHlc, fillConfig };
+    const options = { localHlc, fillConfig: {} };
 
     pipe(
       timestampExchange(options)({

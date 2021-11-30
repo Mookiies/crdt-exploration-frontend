@@ -222,6 +222,49 @@ describe('patchExchange', () => {
 
     expect(result).toHaveBeenCalledTimes(1);
   })
+
+  it('can handle no existing data for a mutation', () => {
+    const result = jest.fn();
+    const response = jest.fn(
+      (forwardOp) => {
+        return {operation: forwardOp, data: mutationOneData};
+      }
+    );
+    const forward = ops$ => {
+      return pipe(ops$, map(response));
+    };
+
+    const options = {
+      updateAuthor: {
+        existingData: () => null,
+        variablePath: 'authorInput'
+      },
+    };
+
+    pipe(
+      patchExchange(options)({
+        forward,
+        client,
+        dispatchDebug,
+      })(ops$),
+      tap(result),
+      publish
+    );
+
+    next(op);
+
+    expect(response).toHaveBeenCalledTimes(1);
+    expect(response.mock.calls[0][0].variables).toEqual({
+      authorInput: {
+        author: {
+          name: 'new name'
+        }
+      }
+    });
+    expect(response.mock.calls[0][0].context).toMatchObject({ [PROCESSED_OPERATION_KEY]: true })
+
+    expect(result).toHaveBeenCalledTimes(1);
+  });
 })
 
 describe('mergeExisting', () => {
