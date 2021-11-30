@@ -1,14 +1,288 @@
 import {cloneDeep} from 'lodash';
 
-
-import {injectTimestampVariables, traverseAndUpdateHlc} from '../timestampExchange';
+import {
+  injectTimestampVariables,
+  traverseAndUpdateHlc,
+  timestampExchange,
+  PROCESSED_OPERATION_KEY
+} from '../timestampExchange';
 import {getCurrentTime, HLC} from '../../lib';
+import {createClient, gql } from '@urql/core';
+import {makeSubject, map, pipe, publish, tap} from 'wonka';
 
 jest
   .useFakeTimers('modern')
   .setSystemTime(new Date('2020-01-01').getTime());
 
+const now = getCurrentTime();
+const futureHlc = new HLC('other_node', now + 1000);
+
+const mutationOne = gql` 
+  mutation updateAuthor ($author: AuthorInput!) {
+    updateAuthor (author: $author) {
+      id
+      name
+      timestamps {
+        name
+      }
+    }
+  }
+`;
+
+const mutationOneData = {
+  __typename: 'Mutation',
+  updateAuthor: {
+    __typename: 'Author',
+    id: '123',
+    name: 'Me',
+    timestamps: {
+      name: futureHlc.pack(),
+    }
+  },
+};
+
+const queryOne = gql`
+  query {
+    authors {
+      id
+      name
+      __typename
+    }
+  }
+`;
+
+const queryOneData = {
+  __typename: 'Query',
+  authors: [
+    {
+      id: '123',
+      name: 'Me',
+      __typename: 'Author',
+      timestamps: {
+        name: futureHlc.pack(),
+      }
+    },
+  ],
+};
+
+const fillConfig = {
+  updateAuthor: {
+    authorInput: {
+      author: {
+        _timestamped: ['name']
+      }
+    }
+  }
+}
+
+const dispatchDebug = jest.fn();
+
 describe('timestampsExchange', () => {
+  const node = 'node';
+  let client, op, ops$, next;
+  let localHlc;
+
+  beforeEach(() => {
+    localHlc = new HLC(node, now);
+
+    client = createClient({ url: 'http://0.0.0.0' });
+    op = client.createRequestOperation('mutation', {
+      key: 1,
+      query: mutationOne,
+      variables: {
+        authorInput: {
+          author: {
+            name: 'new name'
+          }
+        }
+      }
+    });
+
+    ({ source: ops$, next } = makeSubject());
+  });
+
+  it('injects timestamps and updates based on mutation result', () => {
+    const result = jest.fn();
+    const response = jest.fn(
+      (forwardOp) => {
+        return { operation: forwardOp, data: mutationOneData };
+      }
+    );
+    const forward = ops$ => {
+      return pipe(ops$, map(response));
+    };
+
+    const options = { localHlc, fillConfig };
+
+    pipe(
+      timestampExchange(options)({
+        forward,
+        client,
+        dispatchDebug,
+      })(ops$),
+      tap(result),
+      publish
+    );
+
+    next(op);
+
+    expect(response).toHaveBeenCalledTimes(1);
+    const expectedHlc = new HLC('node', now, 0).increment(now).pack()
+    expect(response.mock.calls[0][0].variables).toEqual({
+      authorInput: {
+        author: {
+          name: 'new name',
+          timestamps: {
+            name: expectedHlc,
+          }
+        }
+      }
+    });
+    expect(response.mock.calls[0][0].context).toMatchObject({ [PROCESSED_OPERATION_KEY]: true })
+
+    expect(result).toHaveBeenCalledTimes(1);
+    expect(result.mock.calls[0][0]).toEqual({
+      data: mutationOneData,
+      error: undefined,
+      extensions: undefined,
+      operation: expect.any(Object),
+    });
+    expect(localHlc).toEqual(new HLC('node', now, 0).receive(futureHlc, now))
+  });
+
+  it('does not inject if no matching config', () => {
+    const result = jest.fn();
+    const response = jest.fn(
+      (forwardOp) => {
+        return { operation: forwardOp, data: mutationOneData };
+      }
+    );
+    const forward = ops$ => {
+      return pipe(ops$, map(response));
+    };
+
+    const options = { localHlc, fillConfig };
+
+    pipe(
+      timestampExchange(options)({
+        forward,
+        client,
+        dispatchDebug,
+      })(ops$),
+      tap(result),
+      publish
+    );
+
+    next(op);
+
+    expect(response).toHaveBeenCalledTimes(1);
+    expect(response.mock.calls[0][0].variables).toEqual({
+      authorInput: {
+        author: {
+          name: 'new name',
+        }
+      }
+    });
+    expect(response.mock.calls[0][0].context[PROCESSED_OPERATION_KEY]).not.toBeDefined();
+
+    expect(result).toHaveBeenCalledTimes(1);
+    expect(result.mock.calls[0][0]).toEqual({
+      data: mutationOneData,
+      error: undefined,
+      extensions: undefined,
+      operation: expect.any(Object),
+    });
+    expect(localHlc).toEqual(new HLC('node', now, 0).receive(futureHlc, now))
+  });
+
+  it('updates hlc based on query results', () =>{
+    const result = jest.fn();
+    const response = jest.fn(
+      (forwardOp) => {
+        return { operation: forwardOp, data: queryOneData };
+      }
+    );
+
+    const query =  op = client.createRequestOperation('query', {
+      key: 1,
+      query: queryOne,
+    });
+
+    const forward = ops$ => {
+      return pipe(ops$, map(response));
+    };
+
+    const options = { localHlc, fillConfig: {} };
+
+    pipe(
+      timestampExchange(options)({
+        forward,
+        client,
+        dispatchDebug,
+      })(ops$),
+      tap(result),
+      publish
+    );
+
+    next(query);
+
+    expect(response).toHaveBeenCalledTimes(1);
+    expect(result).toHaveBeenCalledTimes(1);
+    expect(localHlc).toEqual(new HLC('node', now, 0).receive(futureHlc, now))
+  })
+
+  it('does not reprocess replayed mutations', () => {
+    op = client.createRequestOperation('mutation', {
+      key: 1,
+      query: mutationOne,
+      variables: {
+        authorInput: {
+          author: {
+            name: 'new name',
+          }
+        }
+      },
+    }, {
+      [PROCESSED_OPERATION_KEY]: true,
+    });
+
+    const result = jest.fn();
+    const response = jest.fn(
+      (forwardOp) => {
+        return { operation: forwardOp, data: mutationOneData };
+      }
+    );
+    const forward = ops$ => {
+      return pipe(ops$, map(response));
+    };
+
+    const options = { localHlc, fillConfig };
+
+    pipe(
+      timestampExchange(options)({
+        forward,
+        client,
+        dispatchDebug,
+      })(ops$),
+      tap(result),
+      publish
+    );
+
+    next(op);
+
+    expect(response).toHaveBeenCalledTimes(1);
+    expect(response.mock.calls[0][0].variables).toEqual({
+      authorInput: {
+        author: {
+          name: 'new name',
+        }
+      }
+    });
+    expect(response.mock.calls[0][0].context).toMatchObject({ [PROCESSED_OPERATION_KEY]: true })
+
+    expect(result).toHaveBeenCalledTimes(1);
+    expect(localHlc).toEqual(new HLC('node', now, 0).receive(futureHlc, now))
+  })
 
   describe('injectingTimestamps', () => {
     const mockTimestamp = 'mockTimestamp'
@@ -297,7 +571,7 @@ describe('timestampsExchange', () => {
       expect(res).not.toBe(source)
     })
 
-    it('supports handles empty objects', () => {
+    it('supports empty objects', () => {
       const res = injectTimestampVariables({}, undefined, mockTimestamp);
       expect(res).toEqual({})
     })
@@ -323,21 +597,13 @@ describe('timestampsExchange', () => {
       expect(res).toEqual(source)
       expect(res).not.toBe(source)
     })
-    // More test cases
-    // just top level stuff
-    // super nested???
   })
 
   describe('parseAndUpdateHlc', () => {
     const now = getCurrentTime();
     const node = 'node';
-    let localHlc;
 
     const timestampKey = 'timestamps';
-
-    beforeEach(() => {
-      localHlc = new HLC(node, now);
-    })
 
     it('updates hlc from nested object', () => {
       const biggerTs = new HLC(node, now + 80000)

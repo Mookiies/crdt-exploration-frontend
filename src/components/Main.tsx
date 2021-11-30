@@ -272,7 +272,7 @@ TODO List -- whole project
 - [x] stacking mutations (replaying mutations that would get cleared by failures)
 - [] error handling (re-retryable vs not)
 - [] tests
-   - <> for each individual exchange
+   - <x> for each individual exchange
    - <> create end to end with all our exchanges in order
    - <> things arriving out of order
 

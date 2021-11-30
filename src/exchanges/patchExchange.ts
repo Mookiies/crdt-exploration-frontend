@@ -16,7 +16,6 @@ export type MutationConfig = {
 }
 
 export const mergeExisting = (existing: any, newValues: any) => {
-  // TODO Safety for dealing with undefined??
 
   const customizer = (objValue: any, srcValue: any): any => {
     if (isArray(objValue)) {
