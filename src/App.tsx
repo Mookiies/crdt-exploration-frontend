@@ -1,14 +1,19 @@
 import React from 'react';
-import {createClient, Provider, dedupExchange, fetchExchange, OperationResult} from 'urql';
-import { offlineExchange } from './exchanges/graphcache/src';
-import { Main } from './components'
+import {createClient, dedupExchange, fetchExchange, OperationResult, Provider} from 'urql';
+import {offlineExchange} from './exchanges/graphcache/src';
+import {Main} from './components'
 import {makeDefaultStorage} from './exchanges/graphcache/src/default-storage';
 import {requestPolicyExchange} from '@urql/exchange-request-policy';
-import {timestampExchange, patchExchange, PATCH_PROCESSED_OPERATION_KEY, TIMESTAMPS_PROCESSED_OPERATION_KEY} from './exchanges';
-import { localHlc } from './lib';
+import {
+  PATCH_PROCESSED_OPERATION_KEY,
+  patchExchange,
+  timestampExchange,
+  TIMESTAMPS_PROCESSED_OPERATION_KEY
+} from './exchanges';
+import {localHlc} from './lib';
 import type {PatchExchangeOpts} from './exchanges/patchExchange'; // TODO export
-import {getSingleInspectionQuery, getAllInspectionsQuery} from './components/Main';
-import {merge, values, keyBy, cloneDeep} from 'lodash';
+import {getAllInspectionsQuery, getSingleInspectionQuery} from './components/Main';
+import {cloneDeep, keyBy, merge, values} from 'lodash';
 import {isOfflineError} from './exchanges/graphcache/src/offlineExchange';
 
 
@@ -38,14 +43,22 @@ const updates = {
 };
 
 const optimistic = {
-  // This function should do a better job of making sure that all required feilds are present
+  // TODO undefined is not a valid value for absence. So absent variables need to be replaced by null.
+  // This function should do a better job of making sure that all required fields are present
   // null !== undefined (ex not sending position will cause errors here)
   // @ts-ignore
   createOrUpdateInspection:  (variables, cache, info) => {
     const copy = cloneDeep(variables);
 
     const inspection = {
+      name: null,
+      note: null,
       ...copy.input.inspection,
+      timestamps: {
+        name: null,
+        note: null,
+        ...copy.input.inspection.timestamps,
+      },
       __typename: 'Inspection',
     }
     inspection.timestamps.__typename = 'InspectionsTimestamp'
@@ -60,9 +73,15 @@ const optimistic = {
       // @ts-ignore
       area.timestamps.__typename = 'AreasTimestamp'; //TODO get rid of timestamps typename
 
-      area.position = area.position || null;
       return {
+        position: null,
+        name: null,
         ...area,
+        timestamps: {
+          position: null,
+          name: null,
+          ...area.timestamps,
+        },
         __typename: 'Area'
       }
     })
