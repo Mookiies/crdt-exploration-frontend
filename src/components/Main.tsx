@@ -232,14 +232,36 @@ const Inspection = ({ inspection }: any) => (
   </div>
 );
 
-const Area = ({ area }: any) => (
-  <div style={{ border: '2px solid green', margin: '.1rem'}}>
+const Area = ({ area, inspectionUuid }: any) => {
+  const [updateInspectionResult, updateInspection] = useMutation(UpdateInspection);
+
+  const deleteArea = () => {
+    const variables = {
+      "inspectionInput": {
+        "inspection": {
+          uuid: inspectionUuid,
+          areas: [
+            {
+              _deleted: true,
+              uuid: area.uuid,
+            }
+          ]
+        }
+      },
+    }
+    updateInspection(variables).then(result => {
+      console.log('delete result', result)
+    });
+  };
+
+  return <div style={{border: '2px solid green', margin: '.1rem'}}>
     <div>{area.uuid}</div>
     <div>Name: <strong>{area.name}</strong> -- {area.timestamps.name}</div>
     <div>Position: <strong>{area.position + ''}</strong> -- {area.timestamps.position}</div>
-    {area.items.map((item: any) => <Item item={item} key={item.uuid} /> )}
+    {area.items.map((item: any) => <Item item={item} key={item.uuid}/>)}
+    <button onClick={deleteArea}>Delete Area</button>
   </div>
-)
+}
 
 const Item = ({ item }: any) => (
   <div style={{ border: '2px solid blue', margin: '.1rem'}}>
@@ -285,4 +307,13 @@ Non-MVP TODOs
 - [] not resending mutations when one fails
 - [] resending same mutation multiple times (inFlightOperations from offlineExchange)
 - [] are inspections (or other data) getting cleared from optimistic layer and retried going to cause UI problems
+ */
+
+/*
+TODO Problems to discuss
+- deletions ordering causing resurections, should we just go ahead and do soft deletions (or cook up some other solution)?
+- ideas on how to setup optimistic mutations so that default values are always present.
+  - add some config so that things that are missing actually end up being null instead of undefined
+  or
+  - if something is missing just return null from the optimistic update and do nothing
  */

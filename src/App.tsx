@@ -64,9 +64,9 @@ const optimistic = {
     inspection.timestamps.__typename = 'InspectionsTimestamp'
 
     // @ts-ignore
-    inspection.areas = inspection.areas.map((area) => {
+    inspection.areas = inspection.areas?.filter(area => !area._deleted).map((area) => {
       // @ts-ignore
-      area.items = area.items?.map(item => ({
+      area.items = area.items?.filter(item => !item._deleted).map(item => ({
         ...item,
         __typename: 'Item'
       })) || []
