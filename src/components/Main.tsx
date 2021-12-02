@@ -118,6 +118,11 @@ const SingleInspection = ({ inspectionUuid = 'cf4f5f36-63fc-4fa8-a945-2afcf1e593
     }
   });
 
+  const refresh = () => {
+    // Refetch the query and skip the cache
+    reexecuteQuery({ requestPolicy: 'network-only' });
+  };
+
   const {data, fetching, error} = result;
 
 
@@ -168,7 +173,7 @@ const UpdateOrCreateInspection = () => {
   const [inspectionUuid, setInspectionUuid] = useState<string>('cf4f5f36-63fc-4fa8-a945-2afcf1e593fa');
   const [areaName, setAreaName] = useState<string | undefined>(undefined);
   const [areaPosition, setAreaPosition] = useState<number | undefined>(undefined);
-  const [areaUuid, setAreaUuid] = useState<string>('6b215ee8-c6ee-4f74-b5fa-6fae0205107d');
+  const [areaUuid, setAreaUuid] = useState<string>('2fe8d6d4-425f-478e-bf47-cac59ba3ca12');
 
   const variables = generateVariable({
     inspectionName,
@@ -178,7 +183,8 @@ const UpdateOrCreateInspection = () => {
     areaPosition,
     areaUuid,
   });
-  const submit = () => {
+  const submit = (event: any) => {
+    event.preventDefault();
     updateInspection(variables).then(result => {
       console.log('mutation result', result)
     });
@@ -186,32 +192,34 @@ const UpdateOrCreateInspection = () => {
 
   return (
     <div style={{backgroundColor: 'lavender'}}>
-      <label>
-        Inspection name:
-        <input type="text" placeholder={'setInspectionName'} onChange={e => setInspectionName(e.target.value)}/>
-      </label>
-      <label>
-        Inspection note
-        <input type="text" placeholder={'setInspectionNote'} onChange={e => setInspectionNote(e.target.value)}/>
-      </label>
-      <label>
-        inspection UUID
-        <input value={inspectionUuid} type="text" placeholder={'setInspectionUuid'} onChange={e => setInspectionUuid(e.target.value)}/>
-      </label>
+      <form onSubmit={submit}>
+        <label>
+          Inspection name:
+          <input type="text" placeholder={'setInspectionName'} onChange={e => setInspectionName(e.target.value)}/>
+        </label>
+        <label>
+          Inspection note
+          <input type="text" placeholder={'setInspectionNote'} onChange={e => setInspectionNote(e.target.value)}/>
+        </label>
+        <label>
+          inspection UUID
+          <input value={inspectionUuid} type="text" placeholder={'setInspectionUuid'} onChange={e => setInspectionUuid(e.target.value)}/>
+        </label>
 
-      <label>
-        Area Name
-        <input type="text" placeholder={'setAreaName'} onChange={e => setAreaName(e.target.value)}/>
-      </label>
-      <label>
-        Area Position
-        <input type="number" placeholder={'setAreaPosition'} onChange={e => setAreaPosition(e.target.valueAsNumber)}/>
-      </label>
-      <label>
-        Area UUID
-        <input value={areaUuid} type="text" placeholder={'setAreaUuid'} onChange={e => setAreaUuid(e.target.value)}/>
-      </label>
-      <button onClick={submit}>Send mutation</button>
+        <label>
+          Area Name
+          <input type="text" placeholder={'setAreaName'} onChange={e => setAreaName(e.target.value)}/>
+        </label>
+        <label>
+          Area Position
+          <input type="number" placeholder={'setAreaPosition'} onChange={e => setAreaPosition(e.target.valueAsNumber)}/>
+        </label>
+        <label>
+          Area UUID
+          <input value={areaUuid} type="text" placeholder={'setAreaUuid'} onChange={e => setAreaUuid(e.target.value)}/>
+        </label>
+        <input type="submit" value="Send mutation" />
+      </form>
       <br/>
       Mutation Result:
       <pre>{JSON.stringify(updateInspectionResult.data, undefined, 2)}</pre>
