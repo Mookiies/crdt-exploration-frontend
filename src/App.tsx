@@ -21,8 +21,27 @@ import {isOfflineError} from './exchanges/graphcache/src/offlineExchange';
 const updates = {
   Mutation: {
     // @ts-ignore
-    createOrUpdateInspection({createOrUpdateInspection}: any, _args, cache, _info) {
+    createOrUpdateInspection({createOrUpdateInspection}: any, args, cache, _info) {
       if (!createOrUpdateInspection) {
+        return;
+      }
+
+      if (createOrUpdateInspection.inspection === null) { //inspection deleted
+        const uuid = args.input.inspection.uuid;
+        if (!_info.optimistic) {
+          // Any bugs or strange behavior that could come as a result of this?
+          // Areas are not getting invalidated this way -- (query for just an area might be problematic).
+          cache.invalidate({
+            __typename: 'Inspection',
+            uuid,
+          });
+        }
+
+        cache.updateQuery({query: getAllInspectionsQuery}, (data: any) => {
+          const allInspections = data?.allInspections || [];
+          const filtered = allInspections.filter((inspection: any) => inspection.uuid !== uuid)
+          return { allInspections: filtered }
+        });
         return;
       }
 
@@ -60,6 +79,14 @@ const optimistic = {
         ...copy.input.inspection.timestamps,
       },
       __typename: 'Inspection',
+    }
+    if (inspection._deleted) {
+      return {
+        __typename: 'CreateOrUpdateInspectionPayload',
+        success: false,
+        errors: [],
+        inspection: null,
+      };
     }
     inspection.timestamps.__typename = 'InspectionsTimestamp'
 
