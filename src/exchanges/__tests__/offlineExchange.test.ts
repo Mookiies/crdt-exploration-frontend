@@ -151,7 +151,7 @@ describe('offline', () => {
           return {
             operation: forwardOp,
             // @ts-ignore
-            error: { networkError: new Error('failed to fetch') },
+            error: { networkError: new Error('failed to fetch'), graphQLErrors: [] },
           };
         }
       }
@@ -230,7 +230,7 @@ describe('offline', () => {
         return {
           operation: forwardOp,
           // @ts-ignore
-          error: { networkError: new Error('failed to fetch') },
+          error: { networkError: new Error('failed to fetch'), graphQLErrors: [] },
         };
       }
     );
@@ -296,7 +296,7 @@ describe('offline', () => {
         return {
           operation: forwardOp,
           // @ts-ignore
-          error: { networkError: new Error('failed to fetch') },
+          error: { networkError: new Error('failed to fetch'), graphQLErrors: [] },
         };
       }
     );
@@ -397,7 +397,7 @@ describe('offline', () => {
           return {
             operation: forwardOp,
             // @ts-ignore
-            error: { networkError: new Error('failed to fetch') },
+            error: { networkError: new Error('failed to fetch'), graphQLErrors: [] },
           };
         }
       }
