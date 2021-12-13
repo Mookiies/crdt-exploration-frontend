@@ -14,7 +14,7 @@ import {localHlc} from './lib';
 import type {PatchExchangeOpts} from './exchanges/patchExchange'; // TODO export
 import {getAllInspectionsQuery, getSingleInspectionQuery} from './components/Main';
 import {cloneDeep, keyBy, merge, values} from 'lodash';
-import {isOfflineError} from './exchanges/graphcache/src/offlineExchange';
+import {isDeadlockMutation, isOfflineError} from './exchanges/graphcache/src/offlineExchange';
 
 
 // Used so that the list of inspections is updated when a new inspection is created
@@ -155,7 +155,8 @@ shouldReplay: op => true || false
  */
 const isRetryableError = (res: OperationResult): boolean => {
   // TODO what is ts's problem with this being boolean | undefined???
-  return !!isOfflineError(res.error);
+  // TODO implement
+  return !!isOfflineError(res.error) || !!isDeadlockMutation(res.error);
 }
 const storage = makeDefaultStorage({
   idbName: 'graphcache-v3', // The name of the IndexedDB database

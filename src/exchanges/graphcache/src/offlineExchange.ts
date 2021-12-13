@@ -69,6 +69,11 @@ export const isOfflineError = (error: undefined | CombinedError) =>
       error.networkError.message
     ));
 
+export const isDeadlockMutation = (error: undefined | CombinedError) => {
+  const deadlockRegex = /deadlock/i;
+  return error && error.graphQLErrors.some(e=> e.message.match(deadlockRegex))
+}
+
 export const offlineExchange = <C extends Partial<CacheExchangeOpts> & {
   persistedContext: Array<string>,
   isRetryableError: (res: OperationResult) => boolean
@@ -144,6 +149,16 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & {
             }),
           )
         ),
+        tap((res) => {
+          // Testing for retrying this deadlock stuff (not permanent solution)
+          // This is in place because when we hit an retryable error we do not immediately flush-queue (that's un-retryable errors)
+          const { error, operation } = res;
+          if (isDeadlockMutation(error)) {
+            console.log('deadlock mutation hit, retry that op');
+            // flushQueue();
+            client.reexecuteOperation(operation);
+          }
+        }),
         filter(res => {
           // Don't let optimistic mutations that should be retried make it to graphcache and clear optimistic layer
           if (
