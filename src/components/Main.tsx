@@ -169,8 +169,6 @@ const Main = () => {
       {data.allInspections.map((inspection: any) => (<Inspection inspection={inspection} key={inspection.uuid} />))}
       <UpdateOrCreateInspection/>
 
-      <button onClick={toggleShowSingle}>Show single query</button>
-      {showSingle && <SingleInspection />}
     </div>
   );
 }
