@@ -110,7 +110,7 @@ const generateVariable = (opts) => {
   }
 }
 
-const SingleInspection = ({ inspectionUuid = 'cf4f5f36-63fc-4fa8-a945-2afcf1e593fa' }) => {
+const SingleInspection = ({ inspectionUuid }: { inspectionUuid: string}) => {
   const [result, reexecuteQuery] = useQuery({
     query: getSingleInspectionQuery,
     variables: {
@@ -128,11 +128,13 @@ const SingleInspection = ({ inspectionUuid = 'cf4f5f36-63fc-4fa8-a945-2afcf1e593
 
   if (fetching) return <p>Loading...</p>;
   if (error) return <p>Oh no... {error.message}</p>;
+  if (!data) return <p>Zoinks! No Data!</p>
 
   return (
     <div style={{backgroundColor: 'lightyellow'}}>
       Single Result:
-      <pre>{JSON.stringify(data.inspection, undefined, 2)}</pre>
+      <Inspection inspection={data.inspection} />
+      <button onClick={refresh}>Refresh Single Query</button>
     </div>
   );
 }
@@ -145,6 +147,7 @@ const Main = () => {
   const {data, fetching, error} = result;
 
   const [showSingle, setShowSingle] = useState<boolean>(false);
+  const [inspectionUuid, setInspectionUuid] = useState<string>('');
   const toggleShowSingle = React.useCallback(() => {
     setShowSingle(v => !v);
   }, []);
@@ -155,6 +158,13 @@ const Main = () => {
 
   return (
     <div style={{padding: '1rem'}}>
+      <label>
+        Inspection uuid for single query:
+        <input type="text" placeholder={'set uuid'} onChange={e => setInspectionUuid(e.target.value)}/>
+      </label>
+      <button onClick={toggleShowSingle}>Show Single Inspection</button>
+      {(showSingle && inspectionUuid) && <SingleInspection inspectionUuid={inspectionUuid} />}
+
       Query Result:
       {data.allInspections.map((inspection: any) => (<Inspection inspection={inspection} key={inspection.uuid} />))}
       <UpdateOrCreateInspection/>
@@ -170,10 +180,10 @@ const UpdateOrCreateInspection = () => {
 
   const [inspectionName, setInspectionName] = useState<string | undefined>(undefined);
   const [inspectionNote, setInspectionNote] = useState<string | undefined>(undefined);
-  const [inspectionUuid, setInspectionUuid] = useState<string>('cf4f5f36-63fc-4fa8-a945-2afcf1e593fa');
+  const [inspectionUuid, setInspectionUuid] = useState<string>('');
   const [areaName, setAreaName] = useState<string | undefined>(undefined);
   const [areaPosition, setAreaPosition] = useState<number | undefined>(undefined);
-  const [areaUuid, setAreaUuid] = useState<string>('2fe8d6d4-425f-478e-bf47-cac59ba3ca12');
+  const [areaUuid, setAreaUuid] = useState<string>('');
 
   const variables = generateVariable({
     inspectionName,
@@ -231,14 +241,32 @@ const UpdateOrCreateInspection = () => {
   )
 }
 
-const Inspection = ({ inspection }: any) => (
-  <div style={{ border: '2px solid red', margin: '.5rem .5rem'}}>
+const Inspection = ({inspection}: any) => {
+  const [updateInspectionResult, updateInspection] = useMutation(UpdateInspection);
+
+  const deleteInspection = () => {
+    const variables = {
+      "inspectionInput": {
+        "inspection": {
+          uuid: inspection.uuid,
+          _deleted: true,
+        }
+      },
+    }
+    updateInspection(variables).then(result => {
+      console.log('delete result', result)
+    });
+  };
+
+  return <div style={{border: '2px solid red', margin: '.5rem .5rem'}}>
     <div><strong>{inspection.uuid}</strong></div>
     <div>Name: <strong>{inspection.name}</strong> -- {inspection.timestamps.name}</div>
     <div>Note: <strong>{inspection.note}</strong> -- {inspection.timestamps.note}</div>
-    {inspection.areas.map((area: any) => <Area area={area} key={area.uuid} /> )}
+    {inspection.areas.map((area: any) => <Area area={area} key={area.uuid} inspectionUuid={inspection.uuid}/>)}
+    <button onClick={deleteInspection}>Delete Inspection</button>
   </div>
-);
+};
+
 
 const Area = ({ area, inspectionUuid }: any) => {
   const [updateInspectionResult, updateInspection] = useMutation(UpdateInspection);
