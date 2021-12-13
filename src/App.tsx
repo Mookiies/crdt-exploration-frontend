@@ -26,6 +26,8 @@ const updates = {
         return;
       }
 
+      // To support offline deletions then all queries need to be affected here (invalidate is done only on real result)
+      // Currently missing the single query update
       if (createOrUpdateInspection.inspection === null) { //inspection deleted
         const uuid = args.input.inspection.uuid;
         if (!_info.optimistic) {
@@ -35,6 +37,7 @@ const updates = {
             __typename: 'Inspection',
             uuid,
           });
+          return;
         }
 
         cache.updateQuery({query: getAllInspectionsQuery}, (data: any) => {
