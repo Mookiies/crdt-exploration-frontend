@@ -1,4 +1,3 @@
-import { isEmpty } from 'lodash';
 import React, {useState} from 'react';
 import {useMutation, useQuery} from 'urql';
 
@@ -323,9 +322,16 @@ TODO List -- whole project
 - [x] Sending whole patch
 
 - [x] persiting way to not re-process mutations in timestamps and patchinggraphcache
-- [] initializing hlc to max value (persisted)
-- [] deletions
 - [x] stacking mutations (replaying mutations that would get cleared by failures)
+
+- [x] using same time ruby vs js
+
+- [] initializing hlc to max value (persisted)
+- [kinda] deletions (kinda b/c hacky server impl.)
+  - <x> allow deletions
+  - <x> fix server so that inspections can be deleted
+  - <x> fix zombie areas being created
+  - <x> soft deletions
 - [] error handling (re-retryable vs not)
 - [] tests
    - <x> for each individual exchange
@@ -333,8 +339,8 @@ TODO List -- whole project
    - <> things arriving out of order
 
 - [] validate timestamps???
-- [x] using same time ruby vs js
 - [] DSL'ing the timestamp stuff in ruby
+- [] Better implementation for soft deletions in Ruby?
 
 Non-MVP TODOs
 - [] batching/throttling requests
@@ -344,10 +350,56 @@ Non-MVP TODOs
  */
 
 /*
-TODO Problems to discuss
-- deletions ordering causing resurections, should we just go ahead and do soft deletions (or cook up some other solution)?
-- ideas on how to setup optimistic mutations so that default values are always present.
-  - add some config so that things that are missing actually end up being null instead of undefined
-  or
-  - if something is missing just return null from the optimistic update and do nothing
+- better implementation of soft deletions all the way through for create and update
+ */
+
+/*
+TODO deadlocks -- (kinda solved by replaying deadlocked mutations [ideally would be a server side fix]--still janky)
+STR deadlock
+1. create inspections
+2. create a bunch of areas
+3. delete those areas
+
+O:
+- some mutations fail with a deadlock error
+- cache doevs not stay in the desired state [optimistic seems to be get overridden (delete part other changes still valid)]
+ */
+
+
+/*
+ TODO Cache invalidation problem -- (kinda solved see below)
+
+Online  -- solved by cache.invalidate call only for non-optimistic null returning results in updates.
+Offline -- old query still shows up with all areas. (need to write updater for all queries)
+
+STR
+1. Create an inspection
+2. Create a bunch of areas for said inspection
+3. Delete Inspection
+4. Preform single query for said inspection
+
+O:
+See inspections + all of it's areas
+
+When looking at cache these things are not getting deleted.
+Calling cache.invalidate is breaking the list of whole inspections
+Query for individual inspection is returning null, but the end result given by hook is cache value???
+ */
+
+// TODO
+// examine cache on deletions
+// -- How manually do we have to do cache invalidation  (stuff stays around after deletions by create/update)
+// improve ruby soft deletion code
+// -- How to handle changes to deleted things
+
+
+/*
+Current Dirty Hacks in Play
+- re-querying for return value of mutation (rails)
+- spam replaying results caused by deadlocks (in offlineExchange)
+ */
+
+/*
+Delete an inspectoin
+Whole list of inspections cleared
  */
