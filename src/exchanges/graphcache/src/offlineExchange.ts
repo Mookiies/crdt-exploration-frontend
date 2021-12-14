@@ -149,7 +149,7 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & {
             }),
           )
         ),
-        tap((res) => {
+        filter((res) => {
           // Testing for retrying this deadlock stuff (not permanent solution)
           // This is in place because when we hit an retryable error we do not immediately flush-queue (that's un-retryable errors)
           const { error, operation } = res;
@@ -157,7 +157,9 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & {
             console.log('deadlock mutation hit, retry that op');
             // flushQueue();
             client.reexecuteOperation(operation);
+            return false;
           }
+          return true;
         }),
         filter(res => {
           // Don't let optimistic mutations that should be retried make it to graphcache and clear optimistic layer
