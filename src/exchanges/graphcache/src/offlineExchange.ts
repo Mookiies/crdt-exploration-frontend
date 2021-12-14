@@ -156,6 +156,7 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & {
           if (isDeadlockMutation(error)) {
             console.log('deadlock mutation hit, retry that op');
             // flushQueue();
+            next(makeOperation('teardown', operation));
             client.reexecuteOperation(operation);
             return false;
           }
