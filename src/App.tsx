@@ -30,15 +30,6 @@ const updates = {
       // Currently missing the single query update
       if (createOrUpdateInspection.inspection === null) { //inspection deleted
         const uuid = args.input.inspection.uuid;
-        if (!_info.optimistic) {
-          // Any bugs or strange behavior that could come as a result of this?
-          // Areas are not getting invalidated this way -- (query for just an area might be problematic).
-          cache.invalidate({
-            __typename: 'Inspection',
-            uuid,
-          });
-          return;
-        }
 
         cache.updateQuery({query: getAllInspectionsQuery}, (data: any) => {
           const allInspections = data?.allInspections || [];
