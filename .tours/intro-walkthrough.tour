@@ -1,0 +1,228 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "Intro Walkthrough",
+  "steps": [
+    {
+      "title": "Overview",
+      "description": "#### Main Goals\n\n- Components have only one interface with interacting with data regardless of online status\n- Data is synced seamlessly without extra user interaction\n- User never has to resolve data conflicts\n- Data reliably stored\n\n\n### Why patch mutation?\nDon't have to worry about ordering of requests. Each request is self-contained and can be applied on its own.\n\nHow: Patches are built up through a custom `PatchExchange` that takes takes current cache state and merges it with a set of changed variables.\nThis allows for operations to be sent with only changed variables, but for resulting mutation to represent current state with changes.\n\n### Why timestamp each field?\nOrdering of when operations are received on server doesn't matter and changes from multiple machines are merged without conflicts. Last write to single field wins.\n\nHow: Timestamps added to mutations through a custom `TimestampExchange` so consumers never have to worry timestamps.\n\n### Why use HLC's?\na) All events created on a single machine will be correctly ordered with respect to each other (even if local clock jumps)\n\nb) Once machine A sends events to machine B, all events subsequently created on machine B will be ordered as after those events from machine A\n\nhttps://jaredforsyth.com/posts/hybrid-logical-clocks/\n\n### How are updates shown to user immediately?\nUrql's Graphcache exchange can be configured to show optimistic updates for graphql mutations https://formidable.com/open-source/urql/docs/graphcache/cache-updates/#optimistic-updates\n\nHowever, this is not perfect and there are several major limitations to work around as Graphcache is not truly designed to stack many mutations on top of each other (see below questions).\n\n### Why custom offlineExchange?\nThe offlineExchange is a relatively simple wrapper around Graphcahce that holds onto retryable operations.\n\nGraphcache's optimistic layer is reverted in its entirety if a single optimistic mutation comes back with an error.\nTo work around this we have to: \n* Don't let retryable errors (ex: APM api down) make it to graphcache \n* When a genuine error is returned (ie. bad mutation) we have to\n  * let that error hit graphcache and have it clear the optimistic layer\n  * re-execute other mutations to re-create the optimistic layer\n\nAdditionally, a custom offlineExchange is required because urql's exchange only stores mutations once they have come back with a network error. We don't want to drop mutations if the app is closed just because they haven't returned yet.\n\n### Why is batching/stacking mutations required?\nWhen offline each mutation is stored and when client comes online (or is restarted) all mutations are applied again. \nThis could be 100s of mutations sent at once and could overwhelm the server.\n\n#### Why are locally generated UUID's required?\nClient needs to be able to generate data that will look the same as what the server will return. Having an unknown ID \nmakes this very hard, especially if editing things.\n\n\n"
+    },
+    {
+      "file": "src/exchanges/timestampExchange.ts",
+      "selection": {
+        "start": {
+          "line": 161,
+          "character": 1
+        },
+        "end": {
+          "line": 162,
+          "character": 28
+        }
+      },
+      "description": "These lines handle incoming operations. If it's a mutation that needs to have timestamps in it the `injectTimestamp` method is responsible for adding those ",
+      "title": "TimestampsExchange - operations"
+    },
+    {
+      "file": "src/App.tsx",
+      "selection": {
+        "start": {
+          "line": 208,
+          "character": 1
+        },
+        "end": {
+          "line": 215,
+          "character": 4
+        }
+      },
+      "description": "The urql client is responsible for\n\n- adding timestamps to variables in a mutation (timestampExchange)\n- taking in partial variables for a mutation and filling them out with current cache state (patchExchage)\n- storing un-synced mutations (offlineExchange)\n- caching server state (graphcache [which is wrapped by offlineExchange])\n- optimistic layer (graphcache)\n\nFor each graphql operation they will go through these urql exchanges.\nOperations go through in sequence both inbound and outbound. For a good explanation of how this works see https://formidable.com/open-source/urql/docs/architecture/#the-client-and-exchanges\n\nFor understanding how exchanges function internally this documentation is very helpful: https://formidable.com/open-source/urql/docs/advanced/authoring-exchanges/",
+      "title": "Exchanges"
+    },
+    {
+      "file": "src/exchanges/timestampExchange.ts",
+      "description": "This exchange has two main responsibilities \n * - inject timestamps into requests according to given config\n * - parse results an examines all `timestamp` objects to update local HLC\n\n Variables coming into the exchange may look like:\n  ```js\ninspectionsInput: {\n  name: 'name',\n  other: 'other',\n  areas: [\n    {\n      name: 'area - 1',\n      other: 'other',\n    }\n  ]\n}\n ```\n \n And after exiting the exchange would look like:\n  \n```\ninspectionsInput: {\n  name: 'name',\n  other: 'other',\n   timestamps: {\n    name: '00000000009rxzm:00000:my-client:v01',\n    other: '00000000009rxzm:00000:my-client:v01',\n  },\n  areas: [\n    {\n      name: 'area - 1',\n      other: 'other',\n      timestamps: {\n        name: '00000000009rxzm:00000:my-client:v01',\n        other: '00000000009rxzm:00000:my-client:v01',\n      }\n    }\n  ]\n}\n ```",
+      "line": 120,
+      "selection": {
+        "start": {
+          "line": 117,
+          "character": 1
+        },
+        "end": {
+          "line": 118,
+          "character": 76
+        }
+      },
+      "title": "TimestampsExchange - overview"
+    },
+    {
+      "file": "src/exchanges/timestampExchange.ts",
+      "description": "This `injectTimestampVariables` is responsible for kicking off a recursive process of traversing the passsed in variables and adding timestamps. The fillConfig specifies the expected shape of the variables and what variables should get timestamps\n",
+      "line": 136,
+      "title": "TimestampsExchange - injecting timestamps"
+    },
+    {
+      "file": "src/App.tsx",
+      "selection": {
+        "start": {
+          "line": 178,
+          "character": 1
+        },
+        "end": {
+          "line": 190,
+          "character": 1
+        }
+      },
+      "description": "This is the fillConfig passed into the timestampsExchange. It follows the shape of the variables that will be generated for a `CreateOrUpdateInspection` mutation. `_timestamped` indicates what fields at a given object layer should be timestamped\n",
+      "title": "TimestampsExchange - fillConfig"
+    },
+    {
+      "file": "src/exchanges/timestampExchange.ts",
+      "description": "this `updateHlc` method is run on all operation results. This traverses responses to look for timestamps. This is done to maintain the HLC guaruntee that any current even generated by this client will be ahead of any timestamp it has seen so far.",
+      "line": 170,
+      "title": "TimestampsExchange - operation results"
+    },
+    {
+      "file": "src/exchanges/patchExchange.ts",
+      "description": "The patch exchange takes partial variables for a mutation and fills in missing ones with the cached value.\nThis allows for senders of the mutation to send only things that have changed.\n\nFor example the given variables could be just a new name for an inspection\n```\n{\n  inspection: {\n    uuid: '1234'\n    name: 'updated',\n  }\n}\n```\nAnd then after combining with a cache result, the variables after the exchange would look like:\n```\n{\n  \"inspection\": {\n    \"name\": \"updated\",\n    \"note\": \"something in cache\",\n    \"other\": \"something in cache\"\n  }\n}\n```",
+      "line": 46,
+      "title": "Patch Exchange - Overview"
+    },
+    {
+      "file": "src/exchanges/patchExchange.ts",
+      "description": "What's going to happen when subsequent queries end up populated with bad data because of cache reads...\n",
+      "line": 58,
+      "title": "PatchExchange - concern"
+    },
+    {
+      "file": "src/exchanges/patchExchange.ts",
+      "selection": {
+        "start": {
+          "line": 74,
+          "character": 1
+        },
+        "end": {
+          "line": 75,
+          "character": 26
+        }
+      },
+      "description": "Here incoming operations are processed and patched with cache results by the `patchVariables` method if necessary\n",
+      "title": "Patch Exchange - operations"
+    },
+    {
+      "file": "src/exchanges/patchExchange.ts",
+      "selection": {
+        "start": {
+          "line": 58,
+          "character": 1
+        },
+        "end": {
+          "line": 60,
+          "character": 94
+        }
+      },
+      "description": "Here `existingData` is the cache result for the current operation. This is specified by configuration to the exchange.\n\nThis is then merged with the current variables in the operation in `mergeExisting`. \n\nThis assumes that variables and results share the same names and structure, after adjusting for path `variablePath`.",
+      "title": "Patch Exchange - merging"
+    },
+    {
+      "file": "src/App.tsx",
+      "selection": {
+        "start": {
+          "line": 192,
+          "character": 1
+        },
+        "end": {
+          "line": 203,
+          "character": 2
+        }
+      },
+      "description": "This is the config for the `createOrUpdateInpsection` mutation. Most important is specifying what the current cache data is for that operation by reading a query.\n\nDue to how graphcache is architected, direct access to cache is quite limited",
+      "title": "Patch Exchange - config"
+    },
+    {
+      "file": "src/exchanges/graphcache/src/offlineExchange.ts",
+      "description": "The offlineExchange is a wrapper around the Graphcache exchange (which manages our normalized graphql cache)\n\nOut of the box the offlineExchange is responsible for:\n- persisting optimistic mutations that failed due to network errors\n- prevent other network errors from bubbling up to other exchange and eventually consumer code\n\nTo fit our purposes we've had to make several additions to the offlineExchange:\n- storing and persisting operations the momemnt they make it into the exchange (out of the box this is only done on error result)\n- add logic around handling failed optimistic mutations\n- persist additional information about operations (so they are no processed again by the patch or timestamp exchange)",
+      "line": 77,
+      "selection": {
+        "start": {
+          "line": 97,
+          "character": 48
+        },
+        "end": {
+          "line": 104,
+          "character": 14
+        }
+      },
+      "title": "offlineExchange - overview"
+    },
+    {
+      "file": "src/exchanges/graphcache/src/offlineExchange.ts",
+      "description": "This `inFlightOperations` maintains a map of operation key to operation for all ongoing mutations.\n\n(it also includes queries that failed due to network errors. this is so that those get retried when the exchange comes back online)",
+      "line": 94,
+      "selection": {
+        "start": {
+          "line": 146,
+          "character": 17
+        },
+        "end": {
+          "line": 146,
+          "character": 39
+        }
+      },
+      "title": "offlineExchange - inFlightOperations"
+    },
+    {
+      "file": "src/exchanges/graphcache/src/offlineExchange.ts",
+      "description": "When a incoming mutation enters this exchange it is added to `inFlightOperations` here. \n\nThis outerForward is incoming operations before they make it to the wrapped graphcache exchange",
+      "line": 146,
+      "title": "offlineExchange - incoming operations"
+    },
+    {
+      "file": "src/exchanges/graphcache/src/offlineExchange.ts",
+      "selection": {
+        "start": {
+          "line": 165,
+          "character": 1
+        },
+        "end": {
+          "line": 177,
+          "character": 12
+        }
+      },
+      "description": "In this pipe we are dealing with operation results *before* they make it to graphcache.\n\nIn this case we handle optimistic mutations that we think can be retried but failed for some reason (BFF down, APM API down, etc.).\n\nWe are just filtering out this error and preventing it from reaching graphcache, we'll retry this later either onOnline or when restarting. Recall that if a optimistic mutation with an error hits graphcache it clearn the *entire* optimistic layer",
+      "title": "offlineExchange - retryable mutations"
+    },
+    {
+      "file": "src/exchanges/graphcache/src/offlineExchange.ts",
+      "selection": {
+        "start": {
+          "line": 185,
+          "character": 1
+        },
+        "end": {
+          "line": 191,
+          "character": 12
+        }
+      },
+      "description": "This is for non-retryable errors. In this case we are just giving up on a mutation and deleting if from our `inFlightOperations` that are going to get retried.\n\nWe let this error make it to graphcache and clear the optimistic layer.\n\nWe call `flushQueue` to go through all other mutations to re-execute them so that the optimistic layer is restored.",
+      "title": "offlineExchange - non-retryable mutations"
+    },
+    {
+      "file": "src/exchanges/graphcache/src/offlineExchange.ts",
+      "description": "This is where the wrapped graphcache fits into the pipeline\n",
+      "line": 222
+    },
+    {
+      "file": "src/App.tsx",
+      "selection": {
+        "start": {
+          "line": 171,
+          "character": 1
+        },
+        "end": {
+          "line": 173,
+          "character": 14
+        }
+      },
+      "description": "These lines are specific configuration for graphcache.\n\nupdates - responsible for updating queries that may be affected by a mutation. Normalized caching takes cares of alot of the update automatically, but adding a new item to a list requires manual configuration. \n\nresolver - graphcache may not know how to resolve certain queries it has not already seen \n\noptimistic - specifies the expected return result of a mutation."
+    }
+  ],
+  "ref": "main"
+}
