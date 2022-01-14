@@ -1,3 +1,5 @@
+### Running
+
 To run this front end of the POC use.
 
 `TSC_COMPILE_ON_ERROR=true yarn start`
@@ -8,3 +10,8 @@ This expects to use the backend rails app here: https://github.com/Mookiies/crdt
 
 Setup for that repo is running basic rails commands:
 `db:create + migrate` and the `rails s`. Backend runs on localhost:3000
+
+
+### Code tour
+The code tour lives inside the `.tours` directory. Currently there is only one `intro-walkthrough` tour. 
+This requires that you have the codetour plugin for vscode.
