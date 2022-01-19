@@ -392,12 +392,18 @@ describe('mergeExisting', () => {
 
   it('does not mutate source', () => {
     const vars = {
-      one: 'new value',
+      inspection: {
+        name: 'updated',
+      }
     }
 
     const one = { two: 'three'}
     const cache = {
-      one
+      inspection: {
+        name: 'old name',
+        other: 'something in cache',
+        note: 'something in cache',
+      }
     };
 
     expect(mergeExisting(cache, vars)).toEqual({ one: 'new value'})

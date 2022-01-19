@@ -130,11 +130,11 @@ const SingleInspection = ({ inspectionUuid }: { inspectionUuid: string}) => {
   if (!data) return <p>Zoinks! No Data!</p>
 
   return (
-    <div style={{backgroundColor: 'lightyellow'}}>
-      Single Result:
-      <Inspection inspection={data.inspection} />
-      <button onClick={refresh}>Refresh Single Query</button>
-    </div>
+      <div style={{backgroundColor: 'lightyellow'}}>
+        Single Result:
+        <Inspection inspection={data.inspection} />
+        <button onClick={refresh}>Refresh Single Query</button>
+      </div>
   );
 }
 
@@ -156,19 +156,19 @@ const Main = () => {
   if (error) return <p>Oh no... {error.message}</p>;
 
   return (
-    <div style={{padding: '1rem'}}>
-      <label>
-        Inspection uuid for single query:
-        <input type="text" placeholder={'set uuid'} onChange={e => setInspectionUuid(e.target.value)}/>
-      </label>
-      <button onClick={toggleShowSingle}>Show Single Inspection</button>
-      {(showSingle && inspectionUuid) && <SingleInspection inspectionUuid={inspectionUuid} />}
+      <div style={{padding: '1rem'}}>
+        <label>
+          Inspection uuid for single query:
+          <input type="text" placeholder={'set uuid'} onChange={e => setInspectionUuid(e.target.value)}/>
+        </label>
+        <button onClick={toggleShowSingle}>Show Single Inspection</button>
+        {(showSingle && inspectionUuid) && <SingleInspection inspectionUuid={inspectionUuid} />}
 
-      Query Result:
-      {data.allInspections.map((inspection: any) => (<Inspection inspection={inspection} key={inspection.uuid} />))}
-      <UpdateOrCreateInspection/>
+        Query Result:
+        {data.allInspections.map((inspection: any) => (<Inspection inspection={inspection} key={inspection.uuid} />))}
+        <UpdateOrCreateInspection/>
 
-    </div>
+      </div>
   );
 }
 
@@ -198,43 +198,43 @@ const UpdateOrCreateInspection = () => {
   };
 
   return (
-    <div style={{backgroundColor: 'lavender'}}>
-      <form onSubmit={submit}>
-        <label>
-          Inspection name:
-          <input type="text" placeholder={'setInspectionName'} onChange={e => setInspectionName(e.target.value)}/>
-        </label>
-        <label>
-          Inspection note
-          <input type="text" placeholder={'setInspectionNote'} onChange={e => setInspectionNote(e.target.value)}/>
-        </label>
-        <label>
-          inspection UUID
-          <input value={inspectionUuid} type="text" placeholder={'setInspectionUuid'} onChange={e => setInspectionUuid(e.target.value)}/>
-        </label>
+      <div style={{backgroundColor: 'lavender'}}>
+        <form onSubmit={submit}>
+          <label>
+            Inspection name:
+            <input type="text" placeholder={'setInspectionName'} onChange={e => setInspectionName(e.target.value)}/>
+          </label>
+          <label>
+            Inspection note
+            <input type="text" placeholder={'setInspectionNote'} onChange={e => setInspectionNote(e.target.value)}/>
+          </label>
+          <label>
+            inspection UUID
+            <input value={inspectionUuid} type="text" placeholder={'setInspectionUuid'} onChange={e => setInspectionUuid(e.target.value)}/>
+          </label>
 
-        <label>
-          Area Name
-          <input type="text" placeholder={'setAreaName'} onChange={e => setAreaName(e.target.value)}/>
-        </label>
-        <label>
-          Area Position
-          <input type="number" placeholder={'setAreaPosition'} onChange={e => setAreaPosition(e.target.valueAsNumber)}/>
-        </label>
-        <label>
-          Area UUID
-          <input value={areaUuid} type="text" placeholder={'setAreaUuid'} onChange={e => setAreaUuid(e.target.value)}/>
-        </label>
-        <input type="submit" value="Send mutation" />
-      </form>
-      <br/>
-      Mutation Result:
-      <pre>{JSON.stringify(updateInspectionResult.data, undefined, 2)}</pre>
-      Errors:
-      <pre  style={{backgroundColor: 'lightsalmon'}}>{JSON.stringify(updateInspectionResult.error, undefined, 2)}</pre>
-      Sent Variables:
-      <pre style={{backgroundColor: 'lightskyblue'}}>{JSON.stringify(updateInspectionResult.operation?.variables, undefined, 2)}</pre>
-    </div>
+          <label>
+            Area Name
+            <input type="text" placeholder={'setAreaName'} onChange={e => setAreaName(e.target.value)}/>
+          </label>
+          <label>
+            Area Position
+            <input type="number" placeholder={'setAreaPosition'} onChange={e => setAreaPosition(e.target.valueAsNumber)}/>
+          </label>
+          <label>
+            Area UUID
+            <input value={areaUuid} type="text" placeholder={'setAreaUuid'} onChange={e => setAreaUuid(e.target.value)}/>
+          </label>
+          <input type="submit" value="Send mutation" />
+        </form>
+        <br/>
+        Mutation Result:
+        <pre>{JSON.stringify(updateInspectionResult.data, undefined, 2)}</pre>
+        Errors:
+        <pre  style={{backgroundColor: 'lightsalmon'}}>{JSON.stringify(updateInspectionResult.error, undefined, 2)}</pre>
+        Sent Variables:
+        <pre style={{backgroundColor: 'lightskyblue'}}>{JSON.stringify(updateInspectionResult.operation?.variables, undefined, 2)}</pre>
+      </div>
   )
 }
 
@@ -297,9 +297,9 @@ const Area = ({ area, inspectionUuid }: any) => {
 }
 
 const Item = ({ item }: any) => (
-  <div style={{ border: '2px solid blue', margin: '.1rem'}}>
-    <pre>{JSON.stringify(item, undefined, 2)}</pre>
-  </div>
+    <div style={{ border: '2px solid blue', margin: '.1rem'}}>
+      <pre>{JSON.stringify(item, undefined, 2)}</pre>
+    </div>
 )
 export default Main;
 
@@ -326,32 +326,31 @@ TODO List -- whole project
 
 - [x] using same time ruby vs js
 
-- [] initializing hlc to max value (persisted)
+- [kinda] initializing hlc to max value (persisted) [kinda b/c scan's cache]
 - [kinda] deletions (kinda b/c hacky server impl.)
   - <x> allow deletions
   - <x> fix server so that inspections can be deleted
   - <x> fix zombie areas being created
   - <x> soft deletions
+
+Non-POC
 - [] error handling (re-retryable vs not)
+- [] Better implementation for soft deletions in Ruby?
+- [] DSL'ing the timestamp stuff in ruby
+- [] validate timestamps???
 - [] tests
    - <x> for each individual exchange
    - <> create end to end with all our exchanges in order
    - <> things arriving out of order
-
-- [] validate timestamps???
-- [] DSL'ing the timestamp stuff in ruby
-- [] Better implementation for soft deletions in Ruby?
+- [] batching/throttling requests
 
 Non-MVP TODOs
-- [] batching/throttling requests
 - [] not resending mutations when one fails
+    (could maintain set of keys that've been sent and don't pass onto fetch if they are in-network already)
 - [] resending same mutation multiple times (inFlightOperations from offlineExchange)
 - [] are inspections (or other data) getting cleared from optimistic layer and retried going to cause UI problems
  */
 
-/*
-- better implementation of soft deletions all the way through for create and update
- */
 
 /*
 TODO deadlocks -- (kinda solved by replaying deadlocked mutations [ideally would be a server side fix]--still janky)
@@ -370,7 +369,7 @@ O:
  TODO Cache invalidation problem -- (kinda solved see below)
 
 Online  -- solved by cache.invalidate call only for non-optimistic null returning results in updates.
-Offline -- old query still shows up with all areas. (need to write updater for all queries)
+Offline -- old query still shows up with all areas. (need to write updater for all queries [worth doing?])
 
 STR
 1. Create an inspection
@@ -392,14 +391,77 @@ Query for individual inspection is returning null, but the end result given by h
 // improve ruby soft deletion code
 // -- How to handle changes to deleted things
 
+/*
+Cache Inconsistency
+Offline:
+1: create 10 inspections
+2: delete 5 inspections
+3: refresh
+
+O: often missing one or more inspections
+
+Hypothesis: this is caused by spamming the same request?
+Updates is ending up with a empty array -- this is caused by good ol' cache.invalidate :(
+Which if not used leaves open the single query vulnerability
+ */
+
 
 /*
 Current Dirty Hacks in Play
+- copying over graphcache
 - re-querying for return value of mutation (rails)
 - spam replaying results caused by deadlocks (in offlineExchange)
+- stuff associated with inspections not guaranteed invalidated
+- hitting deadlocks on create
  */
 
 /*
-Delete an inspectoin
-Whole list of inspections cleared
+Test cases:
+
+Create an inspection (same list for areas)
+  Shows up in list
+    [x] online
+    [x] offline
+  Shows up in individual query
+    [x] online
+    [x] offline
+  Can create many inspections
+    [x] online
+    [x] offline
+  Creating an inspection with same id as deleted does not result in phantoms
+    [x] online
+    [x] offline
+
+Edit an inspection (same list for areas)
+  Changes show in list
+    [x] online
+    [x] offline
+  Changes show in individual query
+    [x] online
+    [x] offline
+  Can stack many changes and see correct result
+    [x] online
+    [x] offline
+
+Delete an inspection (same list for areas)
+  Removed from list
+    [x] online
+    [TODO] offline
+       When refreshed offline all is good, but when syncing online they show briefly in the list...
+       With enough inspections getting deleted the list just goes blank
+      [] try a failure mode where some deletions just randomly throw
+  Removed from individual query
+    [TODO] online [if not using cache.invalidate then single inspection query will still return cached data]
+    [TODO] offline (areas deleted -- not inspection)
+  Can be stacked with creations and edits
+    [x] online
+    [x] offline
+  Can handle many at once
+    [x] online
+    [x] offline
+
+[x] Handles Rollbacks correctly for failed mutations
+
+[TODO] Can give a mutation with bad data -- and after things still work fine
+   TODO creating area with no inspection UUID: breaks big query
  */

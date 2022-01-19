@@ -15,6 +15,7 @@ import type {PatchExchangeOpts} from './exchanges/patchExchange'; // TODO export
 import {getAllInspectionsQuery, getSingleInspectionQuery} from './components/Main';
 import {cloneDeep, keyBy, merge, values} from 'lodash';
 import {isDeadlockMutation, isOfflineError} from './exchanges/graphcache/src/offlineExchange';
+import {serverCacheExchange} from "./exchanges/serverCacheExchange";
 
 
 // Used so that the list of inspections is updated when a new inspection is created
@@ -114,7 +115,7 @@ const optimistic = {
       inspection
     }
 
-    console.log('optimistic: createOrUpdateInspection result', res)
+    // console.log('optimistic: createOrUpdateInspection result', res)
 
     return res;
   }
@@ -203,14 +204,16 @@ const mergeConfig: PatchExchangeOpts = {
 }
 
 
+
 const client = createClient({
   url: 'http://localhost:3000/graphql',
   exchanges: [
     dedupExchange,
     timestampExchange({ localHlc, fillConfig: timestampsConfig }),
     patchExchange(mergeConfig),
-    requestPolicyExchange({}),
-    cache,
+    // requestPolicyExchange({}),
+    // cache,
+    serverCacheExchange({}),
     fetchExchange
   ]
 });
