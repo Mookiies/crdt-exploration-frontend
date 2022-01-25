@@ -216,9 +216,19 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & {
 
     return ops$ => {
       const sharedOps$ = share(ops$);
-      const opsAndRebound$ = merge([reboundOps$, sharedOps$]);
 
-      return pipe(
+      const skipCache$ = pipe(
+          sharedOps$,
+          filter((op) => !!op.context.skipOffline)
+      )
+      const goToCache$ = pipe(
+          sharedOps$,
+          filter((op) => !op.context.skipOffline)
+      )
+
+      const opsAndRebound$ = merge([reboundOps$, goToCache$]);
+
+      const nonSkippedResults$ = pipe(
         cacheResults$(opsAndRebound$),
         filter(res => {
           if (res.operation.kind === 'query' && isOfflineError(res.error)) {
@@ -229,7 +239,14 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & {
 
           return true;
         }),
-      );
+      )
+
+      const skippedResults$ = pipe(
+          skipCache$,
+          outerForward
+      )
+
+      return merge([skippedResults$, nonSkippedResults$])
     };
   }
 

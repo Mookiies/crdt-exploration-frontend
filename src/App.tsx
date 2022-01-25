@@ -15,7 +15,8 @@ import type {PatchExchangeOpts} from './exchanges/patchExchange'; // TODO export
 import {getAllInspectionsQuery, getSingleInspectionQuery} from './components/Main';
 import {cloneDeep, keyBy, merge, values} from 'lodash';
 import {isDeadlockMutation, isOfflineError} from './exchanges/graphcache/src/offlineExchange';
-import {serverCacheExchange} from "./exchanges/serverCacheExchange";
+import {cacheExchange} from "@urql/exchange-graphcache";
+import {OPTIMISTIC_STATE_KEY} from "./exchanges/patchExchange";
 
 
 // Used so that the list of inspections is updated when a new inspection is created
@@ -62,16 +63,18 @@ const optimistic = {
   // null !== undefined (ex not sending position will cause errors here)
   // @ts-ignore
   createOrUpdateInspection:  (variables, cache, info) => {
-    const copy = cloneDeep(variables);
+    // patches coming in are based on server data so variables cannot simply be used to determine what the current optimistic
+    // state should be. For this reason an extra variable to inform this optimistic fucntion of expected state is used
+    const copy = cloneDeep(info.variables[OPTIMISTIC_STATE_KEY]);
 
     const inspection = {
       name: null,
       note: null,
-      ...copy.input.inspection,
+      ...copy.inspection,
       timestamps: {
         name: null,
         note: null,
-        ...copy.input.inspection.timestamps,
+        ...copy.inspection.timestamps,
       },
       __typename: 'Inspection',
     }
@@ -133,7 +136,8 @@ const resolvers = {
 };
 const persistedContext = [
   PATCH_PROCESSED_OPERATION_KEY,
-  TIMESTAMPS_PROCESSED_OPERATION_KEY
+  TIMESTAMPS_PROCESSED_OPERATION_KEY,
+  OPTIMISTIC_STATE_KEY
 ];
 /*
 TODO Determining if operation is a failures
@@ -154,21 +158,22 @@ const storage = makeDefaultStorage({
   idbName: 'graphcache-v3', // The name of the IndexedDB database
   maxAge: 7, // The maximum age of the persisted data in days
 });
+const keys = {
+  // @ts-ignore
+  Inspection: data => data.uuid,
+  // @ts-ignore
+  Area: data => data.uuid,
+  // @ts-ignore
+  Item: data => data.uuid,
+  // @ts-ignore
+  InspectionsTimestamp: data => null,
+  // todo don't have typename from server from timestamps
+  // @ts-ignore
+  AreasTimestamp: () => null
+};
 const cache = offlineExchange({
   storage,
-  keys: {
-    // @ts-ignore
-    Inspection: data => data.uuid,
-    // @ts-ignore
-    Area: data => data.uuid,
-    // @ts-ignore
-    Item: data => data.uuid,
-    // @ts-ignore
-    InspectionsTimestamp: data => null,
-    // todo don't have typename from server from timestamps
-    // @ts-ignore
-    AreasTimestamp: () => null
-  },
+  keys,
   resolvers,
   updates,
   optimistic,
@@ -197,7 +202,15 @@ const mergeConfig: PatchExchangeOpts = {
        inspectionUuid: operation.variables.inspectionInput.inspection.uuid
      };
 
-     return client.readQuery(getSingleInspectionQuery, vars);
+     // TODO make exchange deal with this double query stuff
+     const serverRes = client.readQuery(getSingleInspectionQuery, vars, {
+       skipOffline: true,
+       requestPolicy: 'cache-only',
+     });
+
+     const optimisticRes = client.readQuery(getSingleInspectionQuery, vars);
+
+     return { serverRes, optimisticRes }
     },
     variablePath: 'inspectionInput', // add some notes about using lodash get and set
   }
@@ -211,9 +224,11 @@ const client = createClient({
     dedupExchange,
     timestampExchange({ localHlc, fillConfig: timestampsConfig }),
     patchExchange(mergeConfig),
-    // requestPolicyExchange({}),
-    // cache,
-    serverCacheExchange({}),
+    requestPolicyExchange({
+      shouldUpgrade: op => !op.context.skipOffline,
+    }),
+    cache,
+    cacheExchange({ storage, keys, resolvers, updates }),
     fetchExchange
   ]
 });
