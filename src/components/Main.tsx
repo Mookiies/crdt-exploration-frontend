@@ -92,7 +92,7 @@ mutation CreateOrUpdateInspection($inspectionInput: CreateOrUpdateInspectionInpu
 const generateVariable = (opts) => {
   const area = {
     ...(opts.areaName && {name: opts.areaName}),
-    ...(opts.areaPosition && {position: opts.areaPosition}),
+    ...(!!opts.areaPosition && {position: opts.areaPosition}),
     ...(opts.areaUuid && {uuid: opts.areaUuid}),
   }
   const areas = area.position || area.name ? [area] : []
