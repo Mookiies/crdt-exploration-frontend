@@ -117,11 +117,15 @@ export const OPTIMISTIC_STATE_KEY = '_optimistic';
  * Merges current cache state with operation variables to create an mutation that is a whole patch. Allows for operations
  * to be sent with only changed variables, but for resulting mutation to contain those omitted variables.
  *
- * TODO add notes about different behavior for optimistic and server behavior (and assumptions here around data requirements)
+ * For a given mutation it merges optimistic and server state with the following assumptions:
+ * - Top level fields for a given object should be merged together. If a field is present in server state use that, otherwise use optimistic. (Nested objects follow this logic recursively)
+ * - Objects nested in arrays present in optimistic layer can be dropped if not present in server state
  *
- * TODO add notes about how it changes operation (new variables, injected artificial variables, context [and extra on this for persistance])
+ * These merging assumption is to support minimal patches for new objects that will have a `null` server layer. The optimistic layer
+ * is used to fill the gap of required fields.
  *
- * TODO mention assumption built into how arrays are handeled
+ * To workaround cache's inability to use custom resolves in read.query expected optimistic state is generated here and
+ * injected into an extra variable (trimmed by graphcache) and context to be persisted.
  */
 export const patchExchange = (options: PatchExchangeOpts): Exchange => ({
                                                                           forward,
@@ -138,16 +142,14 @@ export const patchExchange = (options: PatchExchangeOpts): Exchange => ({
     const { serverRes, optimisticRes } = opConfig.existingData(operation, client);
 
     // Combine server and optimistic. Cache wins to allow patch to be minimal set of changes
-    // TODO there should be docs about why second cache and why merging is done the way that it is
-    // TODO could also make this alot smarter with some sort of schema awareness for required fields...
+    // TODO could make this a lot smarter with some sort of schema awareness for required fields.
     const mergedState = mergeOptimisticIntoServer(optimisticRes?.data, serverRes?.data)
 
     const { variables } = operation;
-    const mergeRes = mergeWithTimestamps(mergedState, get(variables, opConfig.variablePath))
+    const mergeRes = mergeWithTimestamps(mergedState, get(variables, opConfig.variablePath)); // actual variable set to be sent to server
 
-    // This assumes that the optimistic layer is going to contain all the server data. This should be true
-    // but if for some reason it is not this may send incomplete expected optimistic state if optimisticRes.data
-    // is missing properties.
+    // This assumes that the optimistic layer is going to contain all the server data. This should be true but if for
+    // some reason it is not this may send incomplete expected optimistic state if optimisticRes.data is missing properties.
     const optimisticState = mergeWithTimestamps(optimisticRes?.data, get(variables, opConfig.variablePath));
 
     set(variables, opConfig.variablePath, mergeRes)
@@ -159,8 +161,15 @@ export const patchExchange = (options: PatchExchangeOpts): Exchange => ({
     });
   }
 
-  // Inject extra variable for optimistic state. This is so that graphcache's optimistic config gets what the optimistic
-  // layer should look like. (variables are changes + server state, with minimal optimistic)
+  // TODO think about whether this persistence. Are there going to be problems here around saving an optimistic state
+  // TODO instead of re-generating it?
+  /**
+   * Inject extra variable for optimistic state. This is so that graphcache's optimistic config gets what the optimistic
+   * layer should look like. (variables are changes + server state, with minimal optimistic)
+   *
+   * This is also included in context so that optimistic state can be persisted and variables can be re-injected when mutations
+   * are re-applies from restarting client or retrying mutations.
+   */
   const injectOptimisticIntoVariables = (operation: Operation): Operation => {
     if (operation.kind !== 'mutation') {
       return operation;
@@ -194,7 +203,6 @@ export const patchExchange = (options: PatchExchangeOpts): Exchange => ({
     const merged$ = pipe(
       merge([mutations$, rest$]),
       map(injectOptimisticIntoVariables),
-      tap(op => console.log('afterInject', op))
     )
 
     return pipe(merged$, forward);

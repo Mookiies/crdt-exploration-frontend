@@ -63,8 +63,12 @@ const optimistic = {
   // null !== undefined (ex not sending position will cause errors here)
   // @ts-ignore
   createOrUpdateInspection:  (variables, cache, info) => {
-    // patches coming in are based on server data so variables cannot simply be used to determine what the current optimistic
-    // state should be. For this reason an extra variable to inform this optimistic fucntion of expected state is used
+    // Using cache to resolve this doesn't work because for whatever reason urql does not call our custom resolver function
+    // this makes it so that we cannot resolve new single inspection queries to get expected optimistic layer.
+    // ie. cache.readQuery({ query: getSingleInspectionQuery, variables: {...}) does not work
+
+    // Since patches coming in are based on server data so variables cannot simply be used to determine what the current optimistic
+    // state should be. As a workaround an extra variable to inform this optimistic function of expected state is used
     const copy = cloneDeep(info.variables[OPTIMISTIC_STATE_KEY]);
 
     const inspection = {
@@ -240,11 +244,3 @@ const App = () => (
 );
 
 export default App;
-
-/*
-Problems with the current solution:
-
-- Bad data gets into cache all subsequent mutations are going to get populated with that data as well. (not an isolated delta)
-- Had to copy over graphcache (could limit to just offlineExchange)
--
- */
