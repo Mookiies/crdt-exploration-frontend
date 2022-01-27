@@ -49,6 +49,7 @@ export const cacheExchange = <C extends Partial<CacheExchangeOpts>>(
   let hydration: void | Promise<void>;
   if (opts && opts.storage) {
     hydration = opts.storage.readData().then(entries => {
+      console.log('cacheExchange hydration then');
       hydrateData(store.data, opts!.storage!, entries);
     });
   }

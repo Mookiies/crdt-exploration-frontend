@@ -2,6 +2,7 @@ import React from 'react';
 import {createClient, dedupExchange, fetchExchange, OperationResult, Provider} from 'urql';
 import {offlineExchange} from './exchanges/graphcache/src';
 import {Main} from './components'
+import type { Operation } from 'urql';
 import {makeDefaultStorage} from './exchanges/graphcache/src/default-storage';
 import {requestPolicyExchange} from '@urql/exchange-request-policy';
 import {
@@ -57,19 +58,30 @@ const updates = {
   },
 };
 
+type OptimisticOperationThis = {
+  operation: Operation;
+}
+
 const optimistic = {
   // TODO undefined is not a valid value for absence. So absent variables need to be replaced by null.
   // This function should do a better job of making sure that all required fields are present
   // null !== undefined (ex not sending position will cause errors here)
   // @ts-ignore
-  createOrUpdateInspection:  (variables, cache, info) => {
+  createOrUpdateInspection(operation, client, variables, cache, info) {
     // Using cache to resolve this doesn't work because for whatever reason urql does not call our custom resolver function
     // this makes it so that we cannot resolve new single inspection queries to get expected optimistic layer.
     // ie. cache.readQuery({ query: getSingleInspectionQuery, variables: {...}) does not work
 
     // Since patches coming in are based on server data so variables cannot simply be used to determine what the current optimistic
     // state should be. As a workaround an extra variable to inform this optimistic function of expected state is used
-    const copy = cloneDeep(info.variables[OPTIMISTIC_STATE_KEY]);
+    // const copy = cloneDeep(operation.context[OPTIMISTIC_STATE_KEY]);
+    const copy = cloneDeep(operation.variables[OPTIMISTIC_STATE_KEY]);
+    // debugger;
+    console.log('createOrUpdateInspection before copy');
+    // const copy = cache.readQuery({ query: getSingleInspectionQuery, variables: {
+    //   inspectionUuid: variables.input.inspection.uuid
+    // }});
+    // debugger;
 
     const inspection = {
       name: null,
@@ -134,6 +146,7 @@ const resolvers = {
   Query: {
     // @ts-ignore
     inspection: (_, args) => {
+      console.log('inspection resolver called');
       return { __typename: 'Inspection', uuid: args.uuid }
     },
   },

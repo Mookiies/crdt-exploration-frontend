@@ -93,6 +93,14 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & {
     const optimisticMutations = opts.optimistic || {};
     const inFlightOperations = new Map<number, Operation>();
 
+    let currentOperation: null | Operation = null;
+
+    for (const [k, v] of Object.entries(optimisticMutations)) {
+      optimisticMutations[k] = function(...args) {
+        return v(currentOperation, client, ...args);
+      };
+    }
+
     const updateMetadata = () => {
       const requests: SerializedRequest[] = [];
       for (const operation of inFlightOperations.values()) {
@@ -223,7 +231,13 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & {
       )
       const goToCache$ = pipe(
           sharedOps$,
-          filter((op) => !op.context.skipOffline)
+          filter((op) => !op.context.skipOffline),
+          tap((op) => {
+            if (op.kind === 'mutation' && isOptimisticMutation(optimisticMutations, op)) {
+              console.log('before optimisticConfigThis.operation');
+              currentOperation = op;
+            }
+          })
       )
 
       const opsAndRebound$ = merge([reboundOps$, goToCache$]);

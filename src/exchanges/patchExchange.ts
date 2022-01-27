@@ -5,6 +5,7 @@ import {makeOperation} from '@urql/core';
 import {cloneDeep, isArray, values, keyBy, mergeWith, get, set, filter as lFilter} from 'lodash';
 import {OperationResult} from '@urql/core/dist/types/types';
 import {getOperationName} from './utils';
+import { getSingleInspectionQuery } from '../components/Main';
 
 export type PatchExchangeOpts = {
   [key: string]: MutationConfig;
@@ -140,6 +141,7 @@ export const patchExchange = (options: PatchExchangeOpts): Exchange => ({
     const opConfig = options[operationName];
 
     const { serverRes, optimisticRes } = opConfig.existingData(operation, client);
+    debugger;
 
     // Combine server and optimistic. Cache wins to allow patch to be minimal set of changes
     // TODO could make this a lot smarter with some sort of schema awareness for required fields.
@@ -150,14 +152,14 @@ export const patchExchange = (options: PatchExchangeOpts): Exchange => ({
 
     // This assumes that the optimistic layer is going to contain all the server data. This should be true but if for
     // some reason it is not this may send incomplete expected optimistic state if optimisticRes.data is missing properties.
-    const optimisticState = mergeWithTimestamps(optimisticRes?.data, get(variables, opConfig.variablePath));
+    // const optimisticState = mergeWithTimestamps(optimisticRes?.data, get(variables, opConfig.variablePath));
 
     set(variables, opConfig.variablePath, mergeRes)
 
     return makeOperation(operation.kind, {...operation, variables: variables}, {
       ...operation.context,
       [PROCESSED_OPERATION_KEY]: true,
-      [OPTIMISTIC_STATE_KEY]: optimisticState,
+      // [OPTIMISTIC_STATE_KEY]: optimisticState,
     });
   }
 
@@ -175,9 +177,28 @@ export const patchExchange = (options: PatchExchangeOpts): Exchange => ({
       return operation;
     }
 
+    const operationName = getOperationName(operation);
+    if (!(operationName && options[operationName])) {
+      return operation;
+    }
+    const opConfig = options[operationName];
+
+    // const { optimisticRes } = opConfig.existingData(operation, client);
+    const vars = {
+      inspectionUuid: 'ab'
+    };
+
+    // TODO make exchange deal with this double query stuff
+    const optimisticRes = client.readQuery(getSingleInspectionQuery, vars);
+
+    console.log('optimisticRes', optimisticRes);
+    debugger;
+
+    const optimisticState = mergeWithTimestamps(optimisticRes?.data, get(operation.variables, opConfig.variablePath));
+
     const variables = {
-    ...operation.variables,
-    ...(operation.context[OPTIMISTIC_STATE_KEY] && {[OPTIMISTIC_STATE_KEY]: operation.context[OPTIMISTIC_STATE_KEY]})
+      ...operation.variables,
+      [OPTIMISTIC_STATE_KEY]: optimisticState
     };
 
     return makeOperation(operation.kind, {
