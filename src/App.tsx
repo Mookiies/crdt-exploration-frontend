@@ -6,6 +6,7 @@ import {makeDefaultStorage} from './exchanges/graphcache/src/default-storage';
 import {requestPolicyExchange} from '@urql/exchange-request-policy';
 import {
   PATCH_PROCESSED_OPERATION_KEY,
+  machineExchange,
   patchExchange,
   timestampExchange,
   TIMESTAMPS_PROCESSED_OPERATION_KEY
@@ -153,7 +154,7 @@ const storage = makeDefaultStorage({
   idbName: 'graphcache-v3', // The name of the IndexedDB database
   maxAge: 7, // The maximum age of the persisted data in days
 });
-const cache = offlineExchange({
+const offlineCache = offlineExchange({
   storage,
   keys: {
     // @ts-ignore
