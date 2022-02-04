@@ -153,7 +153,7 @@ const storage = makeDefaultStorage({
   idbName: 'graphcache-v3', // The name of the IndexedDB database
   maxAge: 7, // The maximum age of the persisted data in days
 });
-const cache = offlineExchange({
+const offlineCache = offlineExchange({
   storage,
   keys: {
     // @ts-ignore
@@ -170,7 +170,6 @@ const cache = offlineExchange({
   },
   resolvers,
   updates,
-  optimistic,
   persistedContext,
   isRetryableError,
 });
@@ -208,9 +207,10 @@ const client = createClient({
   exchanges: [
     dedupExchange,
     timestampExchange({ localHlc, fillConfig: timestampsConfig }),
-    patchExchange(mergeConfig),
+    // machineExchange(),
+    // patchExchange(mergeConfig),
     requestPolicyExchange({}),
-    cache,
+    offlineCache,
     fetchExchange
   ]
 });
