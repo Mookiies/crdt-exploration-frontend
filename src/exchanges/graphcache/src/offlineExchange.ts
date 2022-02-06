@@ -1,6 +1,6 @@
 import type { Source } from 'wonka';
 import {fromArray, interval, pipe, makeSubject, map, merge, mergeMap, share, filter, subscribe, tap} from 'wonka';
-import {print, SelectionNode } from 'graphql';
+import { buildSchema, getOperationAST, getDirectiveValues, SelectionNode, visit } from 'graphql';
 
 import type { Client } from 'urql';
 
@@ -115,46 +115,35 @@ const mergeWithTimestampsCustomizer = (value: any, srcValue: any, key: string, o
     return values(mergeWith(keyBy(value, 'uuid'), keyBy(srcValue, 'uuid'), mergeWithTimestampsCustomizer));
   }
 
-  if(object?.timestamps?.[key] || source?.timestamps?.[key]) {
+  if (object?.timestamps?.[key] || source?.timestamps?.[key]) {
     return compareTs(object?.timestamps?.[key], source?.timestamps?.[key], value, srcValue);
   }
 
   // TODO way to standadize this key
-  // TODO perf. opti. does this need to get cloned?
   if (key === 'timestamps') {
-    return mergeWith(cloneDeep(value), cloneDeep(srcValue), (v, srcV) => {
+    return mergeWith({}, value, srcValue, (v, srcV) => {
       return compareTs(v, srcV, v, srcV);
-    })
-  }
-}
-
-const mergeOptimisticIntoServerCustomizer = (value: any, srcValue: any, key: string, object: any, source: any): any => {
-  if (isArray(value)) {
-    const v = keyBy(value, 'uuid');
-    const srcValues = keyBy(srcValue, 'uuid');
-    const removedExtras = lFilter(v, (val => {
-      return srcValues[val.uuid]
-    }));
-    return values(mergeWith(keyBy(removedExtras, 'uuid'), srcValues, mergeOptimisticIntoServerCustomizer));
+    });
   }
 }
 
 const mergeWithTimestamps = (existing: any, newValues: any) => {
-  return mergeWith(cloneDeep(existing), cloneDeep(newValues), mergeWithTimestampsCustomizer);
+  return mergeWith({}, existing, newValues, mergeWithTimestampsCustomizer);
 }
 
 const isCrdtOperation = (operation: Operation) => {
   const operationName = getOperationName(operation.query)!;
-  return ['GetInspections', 'CreateOrUpdateInspection'].includes(operationName);
+  return ['GetInspection', 'GetInspections', 'CreateOrUpdateInspection'].includes(operationName);
 }
 
 const isQueryDependentOnMutation = (query: QueryOperation, mutation: MutationOperation) => {
   const isInspectionsList = getOperationName(query.query) === 'GetInspections';
   const isSameInspectionUuid =
-    query.variables?.inspectionInput?.inspection?.uuid === mutation.variables?.inspectionInput?.inspection?.uuid;
+    getOperationName(query.query) === 'GetInspection'
+    && query.variables?.inspectionInput?.inspection?.uuid === mutation.variables?.inspectionInput?.inspection?.uuid;
   console.log('isQueryDependentOnMutation', isInspectionsList, isSameInspectionUuid, query, mutation);
 
-  return isInspectionsList || (isSameInspectionUuid && !!isSameInspectionUuid);
+  return isInspectionsList || isSameInspectionUuid;
 };
 
 interface QueryOperation extends Operation {
@@ -181,6 +170,124 @@ interface MutationOperationCoalescedResult extends MutationOperationResult {
   operation: CoalescedMutationOperation;
 }
 
+interface QueryOperationResult extends OperationResult {
+  operation: QueryOperation;
+}
+
+type CrdtPatch = {
+  key: {
+    __typename: string;
+    id: string;
+  };
+  data: any;
+};
+
+type PatchExtractor = (mutation: MutationOperation) => CrdtPatch[];
+
+type PatchExtractorConfig = Partial<Record<string, PatchExtractor>>;
+
+type QueryUpdater = (result: QueryOperationResult, patches: CrdtPatch[]) => {
+  result: OperationResult;
+  patches: CrdtPatch[];
+};
+
+type QueryUpdaterConfig = Partial<Record<string, QueryUpdater>>;
+
+function isMutationOperationResult(result: OperationResult): result is MutationOperationResult {
+  return result.operation.kind === 'mutation';
+}
+
+function isMutationOperationCoalescedResult(result: OperationResult): result is MutationOperationCoalescedResult {
+  return isMutationOperationResult(result)
+    && Array.isArray(result.operation.context?.crdtMeta?.originalMutations);
+}
+
+function isQueryOperationResult(result: OperationResult): result is QueryOperationResult {
+  return result.operation.kind === 'query';
+}
+
+class CrdtPatchApplier {
+  #patches = new Map<string, CrdtPatch>();
+
+  add(newPatch: CrdtPatch) {
+    const key = JSON.stringify(newPatch.key);
+    let patch = this.#patches.get(key);
+    if (patch) {
+      patch.data = mergeWithTimestamps(patch.data, newPatch.data) as CrdtPatch['data'];
+    } else {
+      patch = cloneDeep(newPatch);
+    }
+
+    this.#patches.set(key, patch);
+
+    return patch;
+  }
+
+  get(key: CrdtPatch['key']) {
+    return this.#patches.get(JSON.stringify(key));
+  }
+
+  clear() {
+    return this.#patches.clear();
+  }
+
+  patches() {
+    return Array.from(this.#patches.values());
+  }
+}
+
+const patchExtractor: PatchExtractorConfig = {
+  CreateOrUpdateInspection: (mutation) => {
+    const __typename = 'Inspection';
+    const id = mutation.variables.inspectionInput.inspection.uuid;
+    return [{
+      key: {
+        __typename,
+        id,
+      },
+      data: mutation.variables.inspectionInput.inspection,
+    }];
+  },
+};
+
+const queryUpdater: QueryUpdaterConfig = {
+  GetInspections: (result, patches) => {
+    const crdtPatchApplier = new CrdtPatchApplier();
+
+    // todo: Don't loop through all inspections - only add those which are in patches
+    result?.data?.allInspections?.forEach((inspection: any) => {
+      crdtPatchApplier.add({
+        key: {
+          __typename: 'Inspection',
+          id: inspection.uuid,
+        },
+        data: inspection,
+      })
+    });
+
+    patches.forEach(patch => {
+      crdtPatchApplier.add(patch);
+    });
+
+    return {
+      result: makeResult(result.operation, {
+        ...result,
+        data: {
+          allInspections: crdtPatchApplier.patches().map(crdtPatch => crdtPatch.data),
+        },
+      }),
+      patches: crdtPatchApplier.patches(),
+    };
+  },
+};
+
+// CrdtMutations -> CrdtManager
+// create CrdtObject which has a view over an iterable in manager
+// each one manages its own queue
+// manager has a callback to remove it from a set (or weakset?) when there's nothing left in its view
+// view could have options to combine across all, or skip different ones
+// could spawn a max number of uploads from central manager
+
 class CrdtMutations {
   #client: Client;
   #next: (op: Operation) => void;
@@ -188,6 +295,7 @@ class CrdtMutations {
   #mutations = new Map<MutationOperation['key'], MutationOperation>();
   #queries = new Map<QueryOperation['key'], QueryOperation>();
 
+  #optimisticState = new CrdtPatchApplier();
   #unsubscribe: null | (() => void) = null;
 
   constructor(client: Client, next: (op: Operation) => void, flushInterval = 500) {
@@ -195,8 +303,11 @@ class CrdtMutations {
     this.#next = next;
   }
 
+  // TODO allow adding mutations in bulk so we can update optimistic state and execute dependent queries only once
   addMutation(mutation: MutationOperation) {
     this.#mutations.set(mutation.key, mutation);
+
+    this.updateOptimisticState([mutation]);
 
     const dependentQueries = this.collectDependentQueries(mutation);
     for (const dependentQuery of dependentQueries) {
@@ -205,7 +316,7 @@ class CrdtMutations {
 
     if (!this.#unsubscribe) {
       this.#unsubscribe = pipe(
-        interval(10000),
+        interval(5000),
         subscribe((n) => {
           console.log(`processing mutations ${n}...`);
           this.sendMutations();
@@ -223,29 +334,31 @@ class CrdtMutations {
 
   teardown(operation: Operation) {
     this.#queries.delete(operation.key);
-    this.removeMutation(operation);
+    if (this.#mutations.has(operation.key)) {
+      this.removeMutations([operation as MutationOperation], true);
+    }
 
     return this;
   }
 
-  applyCoalescedResult(mutationResult: MutationOperationCoalescedResult) {
-    // this.removeMutation(mutationResult.operation);
+  applyResult(result: OperationResult) {
+    if (isMutationOperationCoalescedResult(result)) {
+      return this.applyCoalescedMutation(result);
+    } else if (isQueryOperationResult(result)) {
+      return this.applyQuery(result);
+    }
+
+    return [result];
+  }
+
+  private applyCoalescedMutation(mutationResult: MutationOperationCoalescedResult) {
+    // TODO check the result, success, fail? mark if so
+
     const originalMutations = mutationResult.operation.context.crdtMeta.originalMutations.map(key => {
       return this.#mutations.get(key);
     }).filter((m): m is MutationOperation => !!m);
 
-    const dependentQueries = getUniqueListBy(
-        originalMutations.map(mutation => this.removeMutation(mutation))
-        .flat()
-        .filter((q): q is QueryOperation => !!q),
-      'key'
-    );
-
-    console.log('applyCoalescedResult', mutationResult, originalMutations, dependentQueries);
-
-    for (const dependentQuery of dependentQueries) {
-      this.#client.reexecuteOperation(dependentQuery);
-    }
+    this.removeMutations(originalMutations, false);
 
     const syntheticMutationResults = originalMutations.map(mutation => {
       return makeResult(mutation, mutationResult);
@@ -254,13 +367,26 @@ class CrdtMutations {
     return syntheticMutationResults;
   }
 
-  patchResult() {
+  private applyQuery(originalResult: QueryOperationResult) {
+    const operationName = getOperationName(originalResult.operation.query);
+    if (operationName && queryUpdater[operationName]) {
+      const { result, patches } = queryUpdater[operationName]!(originalResult as QueryOperationResult, this.#optimisticState.patches());
 
+      // use the patches of the query to update our own optimistic state
+      // since we could get a server result that has newer things that just the inputs of our mutations
+      patches.forEach(p => this.#optimisticState.add(p));
+
+      return [result];
+    } else {
+      console.warn('Could not patch optimistic state on result', originalResult);
+    }
+
+    return [originalResult];
   }
 
   sendMutations() {
     // TODO limp mode - don't coalesce
-    const [firstMutation] = this.#mutations.values();
+    const [firstMutation] = this.mutations;
     const likeMutations = Array.from(this.likeMutations(firstMutation));
 
     const coalescedVariables = likeMutations.reduce<MutationOperation['variables']>((merged, mutation) => mergeWithTimestamps(merged, mutation.variables), {});
@@ -276,17 +402,6 @@ class CrdtMutations {
     );
 
     this.#next(coalescedMutation);
-
-    // for (const mutation of this.#mutations.values()) {
-    //   const coelesedMutation = makeOperation(mutation.kind, mutation, {
-    //     ...mutation.context,
-    //     crdtMeta: {
-    //       ...mutation.context.crdtMeta,
-    //       originalMutations: [mutation.key],
-    //     },
-    //   });
-    //   this.#next(coelesedMutation);
-    // }
   }
 
   *likeMutations(mutation: MutationOperation, predicate?: (m1: MutationOperation, m2: MutationOperation) => boolean) {
@@ -299,27 +414,49 @@ class CrdtMutations {
       return matchingMutationName && matchingUuid;
     });
 
-    for (const v of this.#mutations.values()) {
+    for (const v of this.mutations) {
       if (predicate(mutation, v)) {
         yield v;
       }
     }
   }
 
-  mutations() {
+  get mutations() {
     return Array.from(this.#mutations.values());
   }
 
-  private removeMutation(mutation: Operation) {
-    const dependentQueries = this.collectDependentQueries(mutation as MutationOperation);
-    this.#mutations.delete(mutation.key)
+  private removeMutations(mutations: MutationOperation[], resetOptimisticState: boolean) {
+    const dependentQueries = getUniqueListBy(
+        mutations.map(mutation => {
+          const deleted = this.#mutations.delete(mutation.key);
+
+          if (deleted) {
+            return this.collectDependentQueries(mutation as MutationOperation);
+          } else {
+            return [];
+          }
+        })
+        .flat(),
+      'key'
+    );
 
     if (this.#mutations.size === 0 && this.#unsubscribe) {
       this.#unsubscribe();
       this.#unsubscribe = null;
     }
 
-    return dependentQueries;
+    // TODO: only remove optimistic state that's absolutely necessary by the mutation key
+    if (resetOptimisticState) {
+      this.#optimisticState.clear();
+    }
+
+    // TODO: we actually should update using a) all the entities we affected by deleting them
+    // or b) just re-run all of them
+    this.updateOptimisticState(this.mutations);
+
+    for (const dependentQuery of dependentQueries) {
+      this.#client.reexecuteOperation(dependentQuery);
+    }
   }
 
   private collectDependentQueries(mutation: MutationOperation) {
@@ -333,6 +470,17 @@ class CrdtMutations {
     }
 
     return dependentQueries;
+  }
+
+  private updateOptimisticState(mutations: MutationOperation[]) {
+    mutations.forEach(mutation => {
+      const operationName = getOperationName(mutation.query);
+      if (operationName && patchExtractor[operationName]) {
+        patchExtractor[operationName]!(mutation).forEach(patch => this.#optimisticState.add(patch));
+      } else {
+        console.warn('Could not extract patch information from mutation', mutation);
+      }
+    });
   }
 }
 
@@ -473,20 +621,14 @@ export const offlineExchange = <C extends Partial<CacheExchangeOpts> & {
         pipe(
           opsAndRebound$,
           tap((operation) => {
-            console.log('opsandrebound', operation, crdtMutations.mutations());
+            console.log('opsandrebound', operation, crdtMutations.mutations, getOperationAST(operation.query), getSelectionSet(getOperationAST(operation.query)));
           }),
           cacheResults$,
         ),
         filter(removeOfflineResultsAndReexecuteCacheOnly),
         mergeMap(result => {
-          // TODO check that result mutation is a coalesced result (crdtMeta.originalMutations)
-          if (result.operation.kind === 'mutation' && isCrdtOperation(result.operation)) {
-            return fromArray(crdtMutations.applyCoalescedResult(result as MutationOperationCoalescedResult));
-          } else if (result.operation.kind === 'query' && isCrdtOperation(result.operation)) {
-            // TODO: patch result data
-            const patchedResult = crdtMutations.patchResult(result);
-            console.log('patching result...', result, patchedResult);
-            return fromArray([result]);
+          if (isCrdtOperation(result.operation)) {
+            return fromArray(crdtMutations.applyResult(result));
           }
 
           return fromArray([result]);
