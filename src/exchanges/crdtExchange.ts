@@ -101,7 +101,7 @@ const isQueryDependentOnMutation = (query: QueryOperation, mutation: MutationOpe
   const isInspectionsList = getOperationName(query.query) === 'GetInspections';
   const isSameInspectionUuid =
     getOperationName(query.query) === 'GetInspection'
-    && query.variables?.inspectionInput?.inspection?.uuid === mutation.variables?.inspectionInput?.inspection?.uuid;
+    && query.variables?.inspectionUuid === mutation.variables?.inspectionInput?.inspection?.uuid;
   console.log('isQueryDependentOnMutation', isInspectionsList, isSameInspectionUuid, query, mutation);
 
   return isInspectionsList || isSameInspectionUuid;
@@ -253,6 +253,39 @@ const queryUpdater: QueryUpdaterConfig = {
       }),
     };
   },
+  GetInspection: (result, mergedCrdtStore) => {
+    let patchedCrdtStore = mergedCrdtStore;
+    const inspection = result?.data?.inspection;
+
+    if (!inspection) {
+      return { result };
+    }
+
+    const key = {
+      __typename: 'Inspection',
+      id: inspection.uuid,
+    };
+    const serializedKey = serializeCrdtKey(key);
+
+    if(!mergedCrdtStore.has(serializedKey)) {
+      return { result };
+    }
+
+    patchedCrdtStore = applyCrdtPatch(patchedCrdtStore, {
+      key,
+      data: inspection
+    });
+    const newInspection = patchedCrdtStore.get(serializedKey);
+
+    return {
+      result: makeResult(result.operation, {
+        ...result,
+        data: {
+          inspection: newInspection
+        },
+      }),
+    };
+  }
 };
 
 class CrdtManager {
