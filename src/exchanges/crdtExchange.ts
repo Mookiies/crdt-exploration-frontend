@@ -252,6 +252,37 @@ const queryUpdater: QueryUpdaterConfig = {
       }),
     };
   },
+  GetInspection: (result, mergedCrdtStore) => {
+    let patchedCrdtStore = mergedCrdtStore;
+    const inspection = result?.data?.inspection;
+
+    const inspectionUuid = inspection?.uuid || result.operation.variables.inspectionUuid;
+
+    const key = {
+      __typename: 'Inspection',
+      id: inspectionUuid,
+    };
+    const serializedKey = serializeCrdtKey(key);
+
+    if(!mergedCrdtStore.has(serializedKey)) {
+      return { result };
+    }
+
+    patchedCrdtStore = applyCrdtPatch(patchedCrdtStore, {
+      key,
+      data: inspection
+    });
+    const newInspection = patchedCrdtStore.get(serializedKey);
+
+    return {
+      result: makeResult(result.operation, {
+        ...result,
+        data: {
+          inspection: newInspection
+        },
+      }),
+    };
+  }
 };
 
 class CrdtManager {
