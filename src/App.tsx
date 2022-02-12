@@ -121,6 +121,11 @@ const timestampsConfig = {
   }
 }
 
+const incompleteMutationsStore = makeDefaultStorage({
+  idbName: 'incompleteMutations-v1', // The name of the IndexedDB database
+  maxAge: 0, // Never expire these
+});
+
 const client = createClient({
   url: 'http://localhost:3000/graphql',
   exchanges: [
@@ -132,6 +137,7 @@ const client = createClient({
     // TODO: this should take options to configure how to get variables and how to patch queries with optimistic state
     crdtExchange({
       isRetryableError,
+      storage: incompleteMutationsStore,
     }),
     offlineCache,
     fetchExchange
