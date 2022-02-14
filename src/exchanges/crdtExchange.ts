@@ -293,7 +293,7 @@ class CrdtManager {
                      // does?
             mutationOperation,
           );
-          this.#addMutation(mutationOperation);
+          this._addMutation(mutationOperation);
         });
       }
     })
@@ -311,11 +311,11 @@ class CrdtManager {
     });
     this.#storage.writeMetadata!(persistedMutations);
 
-    this.#addMutation(mutation);
+    this._addMutation(mutation);
   }
 
   // TODO allow adding mutations in bulk so we can update optimistic state and execute dependent queries only once
-  #addMutation(mutation: MutationOperation) {
+  _addMutation(mutation: MutationOperation) {
 
     this.updateOptimisticState([mutation]);
 
@@ -572,18 +572,7 @@ export const crdtExchange = <C extends CrdtExchangeOpts>(
       filter(operation => {
         return isCrdtOperation(operation);
       }),
-      tap(operation => {
-        console.log(performance.now(), 'crdtOperations begin');
-        switch (operation.kind) {
-          case 'query':
-            crdtManager.addQuery(operation as QueryOperation);
-            break;
-          case 'teardown':
-            // TODO: teardowns for mutations? can they happen? when?
-            crdtManager.teardown(operation);
-            break;
-          }
-      }),
+      tap(_ => console.log(performance.now(), 'crdtOperations begin')),
       share,
     );
 
@@ -603,12 +592,25 @@ export const crdtExchange = <C extends CrdtExchangeOpts>(
         )
       ]),
       tap(operation => crdtManager.addMutation(operation as MutationOperation)),
+      tap(_ => console.log(performance.now(), 'crdtOperations end')),
       filter(_ => false),
     );
 
     const crdtNonMutations$ = pipe(
       crdtOperations$,
       filter(operation => operation.kind !== 'mutation'),
+      tap(operation => {
+        switch (operation.kind) {
+          case 'query':
+            crdtManager.addQuery(operation as QueryOperation);
+            break;
+          case 'teardown':
+            // TODO: teardowns for mutations? can they happen? when?
+            crdtManager.teardown(operation);
+            break;
+        }
+        console.log(performance.now(), 'crdtOperations end');
+      }),
     )
 
     const nonCrdtOperations$ = pipe(
