@@ -278,10 +278,22 @@ class CrdtManager {
     this.#options = options;
     this.#storage = options.storage;
 
-    this.hydration = this.#storage.readMetadata!().then(entries => {
-      if (entries) {
-        entries.forEach((entry) => {
-          // TODO: Reconstruct a MutationOperation from a SerializedOperation
+    this.hydration = this.#storage.readMetadata!().then(mutations => {
+      let counter = 0;
+      if (mutations) {
+        mutations.forEach((mutation) => {
+          const mutationOperation =
+            this.#client.createRequestOperation(
+              'mutation',
+              createRequest(mutation.query, mutation.variables)
+            ) as MutationOperation;
+          this.#mutations.set(
+            counter, // TODO: How scandalous is using a counter to be the key?
+                     // Do we need to calculate this the same way that urql
+                     // does?
+            mutationOperation,
+          );
+          this.#addMutation(mutationOperation);
         });
       }
     })
