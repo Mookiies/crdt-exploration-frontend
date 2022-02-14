@@ -205,6 +205,11 @@ const patchExtractor: PatchExtractorConfig = {
   },
 };
 
+const applyInspectionDefaults = produce((draft) => {
+  draft.areas = draft.areas || []
+  draft.areas.forEach((area: any) => area.items = area.items || [])
+})
+
 // TODO: better naming, allow as an option
 // handle GetInspection
 // this doesn't handle fields that need a default, for instance, areas[n].items = []
@@ -242,12 +247,15 @@ const queryUpdater: QueryUpdaterConfig = {
       inspection && newInspections.push(inspection);
     }
 
+    let allInspections = [...newInspections, ...patchedInspections];
+    allInspections = allInspections.map(applyInspectionDefaults);
+
     return {
       result: makeResult(result.operation, {
         ...result,
         data: {
           ...result.data,
-          allInspections: [...newInspections, ...patchedInspections],
+          allInspections,
         },
       }),
     };
@@ -272,7 +280,8 @@ const queryUpdater: QueryUpdaterConfig = {
       key,
       data: inspection
     });
-    const newInspection = patchedCrdtStore.get(serializedKey);
+    let newInspection = patchedCrdtStore.get(serializedKey);
+    newInspection = applyInspectionDefaults(newInspection);
 
     return {
       result: makeResult(result.operation, {
