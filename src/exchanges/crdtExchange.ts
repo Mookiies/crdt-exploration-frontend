@@ -555,40 +555,48 @@ export const crdtExchange = <C extends CrdtExchangeOpts>(
   return ops$ => {
     const sharedOps$ = share(ops$);
 
-    const crdtOperations$ = share(
-      pipe(
-        sharedOps$,
-        filter(operation => {
-          return isCrdtOperation(operation);
-        }),
-        tap(operation => {
-          console.log(performance.now(), 'crdtOperations begin');
-          switch (operation.kind) {
-            case 'query':
-              crdtManager.addQuery(operation as QueryOperation);
-              break;
-            case 'teardown':
-              // TODO: teardowns for mutations? can they happen? when?
-              crdtManager.teardown(operation);
-              break;
-            }
-        })
-      )
+    const crdtOperations$ = pipe(
+      sharedOps$,
+      filter(operation => {
+        return isCrdtOperation(operation);
+      }),
+      tap(operation => {
+        console.log(performance.now(), 'crdtOperations begin');
+        switch (operation.kind) {
+          case 'query':
+            crdtManager.addQuery(operation as QueryOperation);
+            break;
+          case 'teardown':
+            // TODO: teardowns for mutations? can they happen? when?
+            crdtManager.teardown(operation);
+            break;
+          }
+      }),
+      share,
     );
 
-    // Buffer CRDT Mutations until the crdtManager is rehydrated.
     const crdtMutations$ = pipe(
-      crdtOperations$,
-      filter(operation => operation.kind === 'mutation'),
-      buffer(fromPromise(crdtManager.hydration)),
-      mergeMap(fromArray),
+      // Buffer CRDT Mutations until the crdtManager is rehydrated.
+      merge([
+        pipe(
+          crdtOperations$,
+          filter(operation => operation.kind === 'mutation'),
+          buffer(fromPromise(crdtManager.hydration)),
+          mergeMap(fromArray),
+        ),
+        pipe(
+          crdtOperations$,
+          filter(operation => operation.kind === 'mutation'),
+          skipUntil(fromPromise(crdtManager.hydration)),
+        )
+      ]),
       tap(operation => crdtManager.addMutation(operation as MutationOperation)),
       filter(_ => false),
     );
+
     const crdtNonMutations$ = pipe(
       crdtOperations$,
       filter(operation => operation.kind !== 'mutation'),
-      skipUntil(fromPromise(crdtManager.hydration)),
     )
 
     const nonCrdtOperations$ = pipe(
