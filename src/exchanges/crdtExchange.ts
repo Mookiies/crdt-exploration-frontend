@@ -279,7 +279,6 @@ class CrdtManager {
     this.#storage = options.storage;
 
     this.hydration = this.#storage.readMetadata!().then(mutations => {
-      let counter = 0;
       if (mutations) {
         mutations.forEach((mutation) => {
           const mutationOperation =
@@ -288,9 +287,7 @@ class CrdtManager {
               createRequest(mutation.query, mutation.variables)
             ) as MutationOperation;
           this.#mutations.set(
-            counter, // TODO: How scandalous is using a counter to be the key?
-                     // Do we need to calculate this the same way that urql
-                     // does?
+            mutationOperation.key,
             mutationOperation,
           );
           this._addMutation(mutationOperation);
@@ -306,7 +303,7 @@ class CrdtManager {
     const persistedMutations = mutationOps.map((mut) => {
       return {
         query: print(mut.query),
-        variables: mut.variables
+        variables: mut.variables,
       }
     });
     this.#storage.writeMetadata!(persistedMutations);
