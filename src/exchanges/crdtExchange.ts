@@ -105,7 +105,7 @@ const isQueryDependentOnMutation = (query: QueryOperation, mutation: MutationOpe
   const isSameInspectionUuid =
     getOperationName(query.query) === 'GetInspection'
     && query.variables?.inspectionInput?.inspection?.uuid === mutation.variables?.inspectionInput?.inspection?.uuid;
-  console.log('isQueryDependentOnMutation', isInspectionsList, isSameInspectionUuid, query, mutation);
+  //console.log('isQueryDependentOnMutation', isInspectionsList, isSameInspectionUuid, query, mutation);
 
   return isInspectionsList || isSameInspectionUuid;
 };
@@ -298,6 +298,13 @@ class CrdtManager {
 
   addMutation(mutation: MutationOperation) {
     this.#mutations.set(mutation.key, mutation);
+    this.persistMutations();
+
+    this._addMutation(mutation);
+  }
+
+  private persistMutations() {
+    console.log('persistMutations');
     const mutationOps = Array.from(this.#mutations.values());
 
     const persistedMutations = mutationOps.map((mut) => {
@@ -307,8 +314,6 @@ class CrdtManager {
       }
     });
     this.#storage.writeMetadata!(persistedMutations);
-
-    this._addMutation(mutation);
   }
 
   // TODO allow adding mutations in bulk so we can update optimistic state and execute dependent queries only once
@@ -326,7 +331,7 @@ class CrdtManager {
       this.#unsubscribe = pipe(
         interval(10000),
         subscribe((n) => {
-          console.log(`processing mutations ${n}...`);
+          ////console.log(`processing mutations ${n}...`);
           // TODO: we should send at a more rapid pace when stuck doing only one mutation a time
           this.sendMutations();
         }),
@@ -423,14 +428,14 @@ class CrdtManager {
 
       return [result];
     } else {
-      console.warn('Could not patch optimistic state on result', originalResult);
+      ////console.warn('Could not patch optimistic state on result', originalResult);
     }
 
     return [originalResult];
   }
 
   sendMutations() {
-    console.log(performance.now(), 'sendMutations begin');
+    ////console.log(performance.now(), 'sendMutations begin');
     const [firstMutation] = this.#mutations.values();
 
     // TODO: better types?
@@ -471,7 +476,7 @@ class CrdtManager {
       this.#next(coalescedMutation);
     }
 
-    console.log(performance.now(), 'sendMutations end');
+    //console.log(performance.now(), 'sendMutations end');
   }
 
   *likeMutations(mutation: MutationOperation, maxMutations: number = 25, predicate?: (m1: MutationOperation, m2: MutationOperation) => boolean) {
@@ -491,7 +496,7 @@ class CrdtManager {
         matchingUuid = m1config.key.__typename === m2config.key.__typename
           && m1config.key.id === m2config.key.id;
       } else {
-        console.warn(`Could not extract mutation information from ${m1name} or ${m2name} mutations`, m1, m2);
+        //console.warn(`Could not extract mutation information from ${m1name} or ${m2name} mutations`, m1, m2);
       }
 
       return matchingMutationName && matchingUuid;
@@ -515,6 +520,7 @@ class CrdtManager {
         this.collectDependentQueries(dependentQueries, mutation);
       }
     }
+    this.persistMutations();
 
     if (this.#mutations.size === 0 && this.#unsubscribe) {
       this.#unsubscribe();
@@ -547,7 +553,7 @@ class CrdtManager {
         const data = lGet(mutation.variables, mutationConfig.path) as CrdtObjectPatch['data'];
         this.#optimisticState = applyCrdtPatch(this.#optimisticState, { key: mutationConfig.key, data });
       } else {
-        console.warn(`Could not extract patch information from ${operationName} mutation`, mutation);
+        //console.warn(`Could not extract patch information from ${operationName} mutation`, mutation);
       }
     }
   }
@@ -569,7 +575,7 @@ export const crdtExchange = <C extends CrdtExchangeOpts>(
       filter(operation => {
         return isCrdtOperation(operation);
       }),
-      tap(_ => console.log(performance.now(), 'crdtOperations begin')),
+      // tap(_ => //console.log(performance.now(), 'crdtOperations begin')),
       share,
     );
 
@@ -589,7 +595,7 @@ export const crdtExchange = <C extends CrdtExchangeOpts>(
         )
       ]),
       tap(operation => crdtManager.addMutation(operation as MutationOperation)),
-      tap(_ => console.log(performance.now(), 'crdtOperations end')),
+      // tap(_ => //console.log(performance.now(), 'crdtOperations end')),
       filter(_ => false),
     );
 
@@ -606,7 +612,7 @@ export const crdtExchange = <C extends CrdtExchangeOpts>(
             crdtManager.teardown(operation);
             break;
         }
-        console.log(performance.now(), 'crdtOperations end');
+        //console.log(performance.now(), 'crdtOperations end');
       }),
     )
 
@@ -623,15 +629,15 @@ export const crdtExchange = <C extends CrdtExchangeOpts>(
       pipe(
         opsAndRebound$,
         tap((operation) => {
-          console.log(performance.now(), 'opsandrebound', operation, crdtManager);
+          //console.log(performance.now(), 'opsandrebound', operation, crdtManager);
         }),
         forward,
       ),
       mergeMap(result => {
         if (isCrdtOperation(result.operation)) {
-          console.log(performance.now(), 'results begin');
+          //console.log(performance.now(), 'results begin');
           const results = crdtManager.applyResult(result);
-          console.log(performance.now(), 'results end', result, results);
+          //console.log(performance.now(), 'results end', result, results);
           return fromArray(results);
         }
 
