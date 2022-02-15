@@ -271,14 +271,15 @@ class CrdtManager {
     this.#options = options;
   }
 
-  // TODO allow adding mutations in bulk so we can update optimistic state and execute dependent queries only once
-  addMutation(mutation: MutationOperation) {
-    this.#mutations.set(mutation.key, mutation);
-
-    this.updateOptimisticState([mutation]);
-
+  addMutations(mutations: MutationOperation[]) {
     const dependentQueries = new Set<QueryOperation>();
-    this.collectDependentQueries(dependentQueries, mutation);
+    mutations.forEach((mutation) => {
+      this.#mutations.set(mutation.key, mutation);
+      this.collectDependentQueries(dependentQueries, mutation);
+    });
+
+    this.updateOptimisticState(mutations);
+
     for (const dependentQuery of dependentQueries) {
       this.#next(toRequestPolicy(dependentQuery, 'cache-only'));
     }
@@ -540,7 +541,7 @@ export const crdtExchange = <C extends CrdtExchangeOpts>(
       }),
       filter(operation => {
         if (operation.kind === 'mutation') {
-          crdtManager.addMutation(operation as MutationOperation);
+          crdtManager.addMutations([operation as MutationOperation]);
           return false;
         }
 
