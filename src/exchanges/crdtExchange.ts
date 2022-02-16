@@ -280,7 +280,7 @@ class CrdtManager {
     const dependentQueries = new Set<QueryOperation>();
     this.collectDependentQueries(dependentQueries, mutation);
     for (const dependentQuery of dependentQueries) {
-      this.#client.reexecuteOperation(toRequestPolicy(dependentQuery, 'cache-first'));
+      this.#next(toRequestPolicy(dependentQuery, 'cache-only'));
     }
 
     if (!this.#unsubscribe) {
@@ -484,7 +484,7 @@ class CrdtManager {
     this.updateOptimisticState(this.#mutations.values());
 
     for (const dependentQuery of dependentQueries) {
-      this.#client.reexecuteOperation(toRequestPolicy(dependentQuery, 'cache-first'));
+      this.#next(toRequestPolicy(dependentQuery, 'cache-only'));
     }
   }
 
