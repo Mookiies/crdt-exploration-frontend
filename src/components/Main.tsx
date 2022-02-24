@@ -6,18 +6,12 @@ export const getAllInspectionsQuery = `query GetInspections {
     name
     uuid
     note
-    timestamps {
-      name
-      note
-    }
+    timestamps
     areas {
       name
       position
       uuid
-      timestamps {
-        name
-        position
-      }
+      timestamps
       items {
         uuid
         name
@@ -34,18 +28,12 @@ query GetInspection($inspectionUuid: String!) {
     name
     uuid
     note
-    timestamps {
-      name
-      note
-    }
+    timestamps
     areas {
       name
       position
       uuid
-      timestamps {
-        name
-        position
-      }
+      timestamps
       items {
         uuid
         name
@@ -66,18 +54,12 @@ mutation CreateOrUpdateInspection($inspectionInput: CreateOrUpdateInspectionInpu
       uuid
       name
       note
-      timestamps {
-        name
-        note
-      }
+      timestamps
       areas {
         uuid
         name
         position
-        timestamps {
-          name
-          position
-        }
+        timestamps
         items {
           uuid
           name
