@@ -139,6 +139,7 @@ const SingleInspection = ({ inspectionUuid }: { inspectionUuid: string}) => {
 }
 
 const Main = () => {
+  // eslint-disable-next-line
   const [result, reexecuteQuery] = useQuery({
     query: getAllInspectionsQuery,
   });
@@ -239,6 +240,7 @@ const UpdateOrCreateInspection = () => {
 }
 
 const Inspection = ({inspection}: any) => {
+  // eslint-disable-next-line
   const [updateInspectionResult, updateInspection] = useMutation(UpdateInspection);
 
   const deleteInspection = () => {
@@ -266,6 +268,7 @@ const Inspection = ({inspection}: any) => {
 
 
 const Area = ({ area, inspectionUuid }: any) => {
+  // eslint-disable-next-line
   const [updateInspectionResult, updateInspection] = useMutation(UpdateInspection);
 
   const deleteArea = () => {

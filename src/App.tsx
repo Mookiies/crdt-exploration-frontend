@@ -8,10 +8,9 @@ import { requestPolicyExchange } from '@urql/exchange-request-policy';
 import {
   crdtExchange,
   timestampExchange,
-  TIMESTAMPS_PROCESSED_OPERATION_KEY
 } from './exchanges';
 import { localHlc } from './lib';
-import { getAllInspectionsQuery, getSingleInspectionQuery } from './components/Main';
+import { getAllInspectionsQuery } from './components/Main';
 import { keyBy, merge, values } from 'lodash';
 import { isDeadlockMutation, isOfflineError } from './exchanges/crdtExchange';
 import { interval } from 'wonka';
@@ -63,10 +62,6 @@ const resolvers = {
     },
   },
 };
-
-const persistedContext = [
-  TIMESTAMPS_PROCESSED_OPERATION_KEY
-];
 
 /*
 TODO Determining if operation is a failures
