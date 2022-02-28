@@ -247,7 +247,7 @@ const queryUpdater: QueryUpdaterConfig = {
       inspection && newInspections.push(inspection);
     }
 
-    let allInspections = [...newInspections, ...patchedInspections];
+    let allInspections = [...patchedInspections, ...newInspections];
     allInspections = allInspections.map(applyInspectionDefaults);
 
     return {
