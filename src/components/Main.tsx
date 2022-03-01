@@ -246,7 +246,6 @@ const Inspection = ({inspection}: any) => {
       "inspectionInput": {
         "inspection": {
           uuid: inspection.uuid,
-          name: inspection.name,
           _deleted: true,
         }
       },
@@ -260,13 +259,13 @@ const Inspection = ({inspection}: any) => {
     <div><strong>{inspection.uuid}</strong></div>
     <div>Name: <strong>{inspection.name}</strong> -- {inspection.timestamps.name}</div>
     <div>Note: <strong>{inspection.note}</strong> -- {inspection.timestamps.note}</div>
-    {inspection.areas.map((area: any) => <Area area={area} key={area.uuid} inspectionUuid={inspection.uuid} inspectionName={inspection.name} />)}
+    {inspection.areas.map((area: any) => <Area area={area} key={area.uuid} inspectionUuid={inspection.uuid}/>)}
     <button onClick={deleteInspection}>Delete Inspection</button>
   </div>
 };
 
 
-const Area = ({ area, inspectionUuid, inspectionName }: any) => {
+const Area = ({ area, inspectionUuid }: any) => {
   const [updateInspectionResult, updateInspection] = useMutation(UpdateInspection);
 
   const deleteArea = () => {
@@ -274,12 +273,10 @@ const Area = ({ area, inspectionUuid, inspectionName }: any) => {
       "inspectionInput": {
         "inspection": {
           uuid: inspectionUuid,
-          name: inspectionName,
           areas: [
             {
               _deleted: true,
               uuid: area.uuid,
-              name: area.name,
             }
           ]
         }
