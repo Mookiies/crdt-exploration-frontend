@@ -520,35 +520,25 @@ describe('crdtExchange', () => {
         expect([updateInspectionMutationKey, createInspectionMutationKey]).toContain(result.mock.calls[2][0].operation.key);
     })
 
-    it('re-trys errors from failed mutations that can be retried', () => {
-
+    it('retries errors from failed mutations that can be retried', () => {
+        // TODO
     })
 
     it('removes mutation from optimistic state on unretryable errors', () => {
-
+        // TODO
     })
 
-    // Look at   it('writes queries to the cache', () => { from cacheExchange tests for good example
-    /* Test Wishlist
-    [-] Non-crdt operations work as expected (queries and mutations. Maaaybe teardowns)
-    [x] Create case where there's nothing in cache
-    [x] Case where there's something in cache
-    [] Case where's there persisted cache???
-    [] Updating multiple queries at once
-    [] Server response doesn't match with sent variables
-        - timestamps added
-        - mutation sent
-        - queries updated immediately
-        - mutation result received and queries updated again (with server result [extra changes])
+    it('updates multiple dependent queries', () => {
+        // TODO
+    })
 
-    [] Coalesced mutation
-        - timestamps added
-        - mutations are batched together and sent to
+    it('updates queries when mutations return deleted inspection', () => {
+        // TODO
+        // ie. sending a mutation with a change but get back null inspection (been deleted)
+    })
 
-    [] Retryable errors
-    [] Un-retryable errors
-
-    [] Change but the server result comes back null
-     *
-     */
+    it('coalesces mutations to the limit of 25 mutations in one', () => {
+        // TODO
+        // TODO can combine to test that optimistic results are still in effect on mutation results
+    })
 })
