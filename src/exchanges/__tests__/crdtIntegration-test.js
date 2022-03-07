@@ -144,6 +144,7 @@ const getAllInspectionsQuery = gql`query GetInspections {
 // ===================================================
 
 const resetJestTime = () => {
+    jest.clearAllTimers(); // prevent timers from leaking into other tests
     jest.useFakeTimers('modern')
         .setSystemTime(new Date('2020-01-01').getTime());
 }
