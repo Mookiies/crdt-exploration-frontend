@@ -14,6 +14,7 @@ import { localHlc } from './lib';
 import { getAllInspectionsQuery, getSingleInspectionQuery } from './components/Main';
 import { keyBy, merge, values } from 'lodash';
 import { isDeadlockMutation, isOfflineError } from './exchanges/crdtExchange';
+import { interval } from 'wonka';
 
 // Used so that the list of inspections is updated when a new inspection is created
 const updates = {
@@ -120,6 +121,10 @@ const timestampsConfig = {
     }
   }
 }
+const incompleteMutationsStore = makeDefaultStorage({
+  idbName: "incompleteMutations-v1", // The name of the IndexedDB database
+  maxAge: 0, // Never expire these
+});
 
 const client = createClient({
   url: 'http://localhost:3000/graphql',
@@ -132,6 +137,8 @@ const client = createClient({
     // TODO: this should take options to configure how to get variables and how to patch queries with optimistic state
     crdtExchange({
       isRetryableError,
+      storage: incompleteMutationsStore,
+      sendTrigger$: interval(10000),
     }),
     offlineCache,
     fetchExchange
