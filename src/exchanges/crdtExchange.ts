@@ -87,7 +87,7 @@ const mergeWithTimestampsCustomizer = (targetValue: any, srcValue: any, key: str
   }
 }
 
-const mergeWithTimestamps = (existing: any, newValues: any) => {
+export const mergeWithTimestamps = (existing: any, newValues: any) => {
   return mergeWith({}, existing, newValues, mergeWithTimestampsCustomizer);
 }
 

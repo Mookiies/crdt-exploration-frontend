@@ -1,0 +1,19 @@
+name: Continuous Integration
+
+on: [push]
+
+jobs:
+  buildAndTest:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Install dependencies
+        run: yarn
+
+      - name: Build
+        run: TSC_COMPILE_ON_ERROR=true yarn build
+
+      - name: Test
+        run: yarn test --watchAll=false

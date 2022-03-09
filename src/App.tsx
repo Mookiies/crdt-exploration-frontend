@@ -1,8 +1,8 @@
 import React from 'react';
 import { createClient, dedupExchange, fetchExchange, OperationResult, Provider } from 'urql';
 import { offlineExchange } from '@urql/exchange-graphcache';
+import { makeDefaultStorage } from '@urql/exchange-graphcache/default-storage';
 import { Main } from './components'
-import { makeDefaultStorage } from './exchanges/graphcache/src/default-storage';
 import { requestPolicyExchange } from '@urql/exchange-request-policy';
 
 import {
