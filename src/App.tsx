@@ -1,21 +1,19 @@
 import React from 'react';
-import {createClient, dedupExchange, fetchExchange, OperationResult, Provider} from 'urql';
-import {offlineExchange} from './exchanges/graphcache/src';
-import {Main} from './components'
-import {makeDefaultStorage} from './exchanges/graphcache/src/default-storage';
-import {requestPolicyExchange} from '@urql/exchange-request-policy';
+import { createClient, dedupExchange, fetchExchange, OperationResult, Provider } from 'urql';
+import { offlineExchange } from '@urql/exchange-graphcache';
+import { Main } from './components'
+import { makeDefaultStorage } from './exchanges/graphcache/src/default-storage';
+import { requestPolicyExchange } from '@urql/exchange-request-policy';
+
 import {
-  PATCH_PROCESSED_OPERATION_KEY,
-  patchExchange,
+  crdtExchange,
   timestampExchange,
   TIMESTAMPS_PROCESSED_OPERATION_KEY
 } from './exchanges';
-import {localHlc} from './lib';
-import type {PatchExchangeOpts} from './exchanges/patchExchange'; // TODO export
-import {getAllInspectionsQuery, getSingleInspectionQuery} from './components/Main';
-import {cloneDeep, keyBy, merge, values} from 'lodash';
-import {isDeadlockMutation, isOfflineError} from './exchanges/graphcache/src/offlineExchange';
-
+import { localHlc } from './lib';
+import { getAllInspectionsQuery, getSingleInspectionQuery } from './components/Main';
+import { keyBy, merge, values } from 'lodash';
+import { isDeadlockMutation, isOfflineError } from './exchanges/crdtExchange';
 
 // Used so that the list of inspections is updated when a new inspection is created
 const updates = {
@@ -55,72 +53,6 @@ const updates = {
   },
 };
 
-const optimistic = {
-  // TODO undefined is not a valid value for absence. So absent variables need to be replaced by null.
-  // This function should do a better job of making sure that all required fields are present
-  // null !== undefined (ex not sending position will cause errors here)
-  // @ts-ignore
-  createOrUpdateInspection:  (variables, cache, info) => {
-    const copy = cloneDeep(variables);
-
-    const inspection = {
-      name: null,
-      note: null,
-      ...copy.input.inspection,
-      timestamps: {
-        name: null,
-        note: null,
-        ...copy.input.inspection.timestamps,
-      },
-      __typename: 'Inspection',
-    }
-    if (inspection._deleted) {
-      return {
-        __typename: 'CreateOrUpdateInspectionPayload',
-        success: false,
-        errors: [],
-        inspection: null,
-      };
-    }
-    inspection.timestamps.__typename = 'InspectionsTimestamp'
-
-    // @ts-ignore
-    inspection.areas = inspection.areas?.filter(area => !area._deleted).map((area) => {
-      // @ts-ignore
-      area.items = area.items?.filter(item => !item._deleted).map(item => ({
-        ...item,
-        __typename: 'Item'
-      })) || []
-      // @ts-ignore
-      area.timestamps.__typename = 'AreasTimestamp'; //TODO get rid of timestamps typename
-
-      return {
-        position: null,
-        name: null,
-        ...area,
-        timestamps: {
-          position: null,
-          name: null,
-          ...area.timestamps,
-        },
-        __typename: 'Area'
-      }
-    })
-
-    const res = {
-      __typename: 'CreateOrUpdateInspectionPayload',
-      success: false,
-      errors: [],
-      inspection
-    }
-
-    console.log('optimistic: createOrUpdateInspection result', res)
-
-    return res;
-  }
-};
-
-
 // Used so that the cache can do a `readQuery` and know how to resolve a query for a single inspection it hasn't seen yet.
 const resolvers = {
   Query: {
@@ -130,10 +62,11 @@ const resolvers = {
     },
   },
 };
+
 const persistedContext = [
-  PATCH_PROCESSED_OPERATION_KEY,
   TIMESTAMPS_PROCESSED_OPERATION_KEY
 ];
+
 /*
 TODO Determining if operation is a failures
 - network errors should never count (unless their status codes are something we know is doomed)
@@ -149,11 +82,13 @@ const isRetryableError = (res: OperationResult): boolean => {
   // TODO implement
   return !!isOfflineError(res.error) || !!isDeadlockMutation(res.error);
 }
+
 const storage = makeDefaultStorage({
   idbName: 'graphcache-v3', // The name of the IndexedDB database
   maxAge: 7, // The maximum age of the persisted data in days
 });
-const cache = offlineExchange({
+
+const offlineCache = offlineExchange({
   storage,
   keys: {
     // @ts-ignore
@@ -170,9 +105,6 @@ const cache = offlineExchange({
   },
   resolvers,
   updates,
-  optimistic,
-  persistedContext,
-  isRetryableError,
 });
 
 const timestampsConfig = {
@@ -189,28 +121,19 @@ const timestampsConfig = {
   }
 }
 
-const mergeConfig: PatchExchangeOpts = {
-  "CreateOrUpdateInspection": {
-    existingData: (operation, client) => {
-     const vars = {
-       inspectionUuid: operation.variables.inspectionInput.inspection.uuid
-     };
-
-     return client.readQuery(getSingleInspectionQuery, vars);
-    },
-    variablePath: 'inspectionInput', // add some notes about using lodash get and set
-  }
-}
-
-
 const client = createClient({
   url: 'http://localhost:3000/graphql',
   exchanges: [
     dedupExchange,
+    requestPolicyExchange({
+      ttl: 5 * 60 * 1000
+    }),
     timestampExchange({ localHlc, fillConfig: timestampsConfig }),
-    patchExchange(mergeConfig),
-    requestPolicyExchange({}),
-    cache,
+    // TODO: this should take options to configure how to get variables and how to patch queries with optimistic state
+    crdtExchange({
+      isRetryableError,
+    }),
+    offlineCache,
     fetchExchange
   ]
 });
@@ -222,11 +145,3 @@ const App = () => (
 );
 
 export default App;
-
-/*
-Problems with the current solution:
-
-- Bad data gets into cache all subsequent mutations are going to get populated with that data as well. (not an isolated delta)
-- Had to copy over graphcache (could limit to just offlineExchange)
--
- */
