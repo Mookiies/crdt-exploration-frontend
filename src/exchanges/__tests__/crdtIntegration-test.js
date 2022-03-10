@@ -7,6 +7,7 @@ import {getCurrentTime, HLC} from "../../lib";
 import {keyBy, merge, values} from "lodash";
 import {offlineExchange} from "@urql/exchange-graphcache";
 import { cloneDeep } from "lodash";
+import {unwrappedPromise} from "./test-utils";
 
 // TODO this section should get swapped to imports
 // ===================================================
@@ -269,16 +270,27 @@ const nonCrdtMutationData = {
 
 describe('crdtExchange', () => {
     let client, ops$, next;
+    let triggerSend, writeMetadataCalled, resolveWriteMetadataCalled;
     let localHlc;
     let nonCrdtMutation, createInspectionMutation, updateInspectionMutation;
     let getAllInspectionsQuery;
     let timestampExchangeInstance, crdtExchangeInstance, offlineExchangeInstance, composedExchange;
     const isRetryableError = jest.fn(() => true); // TODO import this from whereever this gets defined
     const [getAllInspectionsQueryKey, nonCrdtMutationKey, createInspectionMutationKey, updateInspectionMutationKey] = [0,1,2,3]
+    const storage = {
+        onOnline: jest.fn(),
+        writeData: jest.fn(),
+        writeMetadata: jest.fn(),
+        readData: jest.fn(),
+        readMetadata: jest.fn(),
+    };
 
     beforeEach(() => {
         resetJestTime();
         localHlc = new HLC(node, now);
+
+        [writeMetadataCalled, resolveWriteMetadataCalled] = unwrappedPromise();
+        storage.writeMetadata.mockImplementation(resolveWriteMetadataCalled);
 
         client = createClient({ url: 'http://0.0.0.0' });
         ({ source: ops$, next } = makeSubject());
@@ -311,8 +323,12 @@ describe('crdtExchange', () => {
             query: AllInspections.query
         })
 
-       crdtExchangeInstance = crdtExchange({
-            isRetryableError
+        const { source: sendTrigger$, next: triggerNext } = makeSubject();
+        triggerSend = triggerNext;
+        crdtExchangeInstance = crdtExchange({
+            isRetryableError,
+            sendTrigger$,
+            storage
         });
 
         timestampExchangeInstance = timestampExchange({
@@ -324,7 +340,7 @@ describe('crdtExchange', () => {
         offlineExchangeInstance = offlineExchange({
             keys,
             resolvers,
-            updates
+            updates,
         })
 
         composedExchange = composeExchanges([timestampExchangeInstance, crdtExchangeInstance, offlineExchangeInstance]);
@@ -353,13 +369,14 @@ describe('crdtExchange', () => {
         );
 
         next(nonCrdtMutation);
+        triggerSend(1);
 
         expect(response).toHaveBeenCalledTimes(1);
         expect(result).toHaveBeenCalledTimes(1);
         expect(result.mock.calls[0][0].data).toBe(nonCrdtMutationData)
     })
 
-    it('create new inspection and updates queries', () => {
+    it('create new inspection and updates queries', async () => {
         const result = jest.fn(); // operationResults
         const response = jest.fn( // operations after exchanges
             (forwardOp) => {
@@ -387,6 +404,7 @@ describe('crdtExchange', () => {
 
         next(getAllInspectionsQuery)
         next(createInspectionMutation)
+        await writeMetadataCalled;
 
         expect(response).toHaveBeenCalledTimes(1);
         expect(result).toHaveBeenCalledTimes(2);
@@ -404,7 +422,7 @@ describe('crdtExchange', () => {
             'miss'
         );
 
-        jest.runAllTimers(); // Trigger crdtExchange interval for sending mutations
+        triggerSend(1); // Trigger crdtExchange interval for sending mutations
 
         expect(response).toHaveBeenCalledTimes(2);
         expect(result).toHaveBeenCalledTimes(4);
@@ -422,7 +440,7 @@ describe('crdtExchange', () => {
         expect(result.mock.calls[3][0].data).toEqual(createInspection.serverCreateResult);
     })
 
-    it('combines optimistic mutations with cache results for queries', () => {
+    it('combines optimistic mutations with cache results for queries', async () => {
         const result = jest.fn(); // operationResults
         const response = jest.fn( // operations after exchanges
             (forwardOp) => {
@@ -449,7 +467,9 @@ describe('crdtExchange', () => {
         );
 
         next(createInspectionMutation)
-        jest.runAllTimers(); // Setup cache -- trigger mutations in crdtExchange
+        await writeMetadataCalled;
+        triggerSend(1); // Trigger crdtExchange interval for sending mutations
+
         jest.clearAllMocks()
 
         next(getAllInspectionsQuery)
@@ -466,7 +486,7 @@ describe('crdtExchange', () => {
         expect(result.mock.calls[0][0].data).toEqual(AllInspections._updateResult)
     })
 
-    it('coalesces mutations', () => {
+    it('coalesces mutations', async () => {
         const result = jest.fn(); // operationResults
         const response = jest.fn( // operations after exchanges
             (forwardOp) => {
@@ -495,6 +515,7 @@ describe('crdtExchange', () => {
         next(getAllInspectionsQuery)
         next(createInspectionMutation)
         next(updateInspectionMutation)
+        await writeMetadataCalled
 
         expect(response).toHaveBeenCalledTimes(1); // query sent through cache exchange
         expect(result).toHaveBeenCalledTimes(3);
@@ -503,7 +524,7 @@ describe('crdtExchange', () => {
         expect(result.mock.calls[2][0].data).toEqual(AllInspections._updateResult)
 
         jest.clearAllMocks();
-        jest.runAllTimers();
+        triggerSend(1);
 
         expect(response).toHaveBeenCalledTimes(1); // mutation sent because of timer
         expect(result).toHaveBeenCalledTimes(3);

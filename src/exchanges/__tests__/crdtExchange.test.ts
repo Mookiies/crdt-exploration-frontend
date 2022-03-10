@@ -12,6 +12,7 @@ import { pipe, map, makeSubject, tap, publish } from "wonka";
 import { crdtExchange } from "../crdtExchange";
 
 import { PROCESSED_OPERATION_KEY } from "../timestampExchange";
+import {unwrappedPromise} from "./test-utils";
 
 const CreateOrUpdateInspection = gql`
   mutation CreateOrUpdateInspection(
@@ -105,16 +106,6 @@ const SomeOtherMutation1 = {
 };
 
 const dispatchDebug = jest.fn();
-
-function unwrappedPromise(): [Promise<void>, () => void, () => void] {
-  let resolver: unknown;
-  let rejector: unknown;
-  const promise = new Promise<void>((resolve, reject) => {
-    resolver = resolve;
-    rejector = reject;
-  });
-  return [promise, resolver as () => void, rejector as () => void];
-}
 
 describe("crdtExchange", () => {
   describe("persistence", () => {
