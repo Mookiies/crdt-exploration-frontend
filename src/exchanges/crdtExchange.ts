@@ -210,6 +210,13 @@ const applyInspectionDefaults = produce((draft) => {
   draft.areas.forEach((area: any) => area.items = area.items || [])
 })
 
+const filterDeletedAreasItems = produce((draft) => {
+  draft.areas = draft.areas.filter((area: any) => !area._deleted).map((area: any) => ({
+    ...area,
+    items: area.items.filter((item: any) => !item._deleted),
+  }));
+});
+
 // TODO: better naming, allow as an option
 // handle GetInspection
 // this doesn't handle fields that need a default, for instance, areas[n].items = []
@@ -250,6 +257,9 @@ const queryUpdater: QueryUpdaterConfig = {
     let allInspections = [...newInspections, ...patchedInspections];
     allInspections = allInspections.map(applyInspectionDefaults);
 
+    allInspections = allInspections.filter((inspection) => !inspection._deleted);
+    allInspections = allInspections.map(filterDeletedAreasItems);
+
     return {
       result: makeResult(result.operation, {
         ...result,
@@ -283,12 +293,13 @@ const queryUpdater: QueryUpdaterConfig = {
     let newInspection = patchedCrdtStore.get(serializedKey);
     newInspection = applyInspectionDefaults(newInspection);
 
+    newInspection = filterDeletedAreasItems(newInspection);
+    const data = newInspection?._deleted ? null : { inspection: newInspection };
+
     return {
       result: makeResult(result.operation, {
         ...result,
-        data: {
-          inspection: newInspection
-        },
+        data,
       }),
     };
   }
