@@ -1,6 +1,7 @@
 import type { Draft, Immutable } from 'immer';
-import type { Client, CombinedError, Exchange, Operation, OperationResult, RequestPolicy } from 'urql';
+import type { Client, CombinedError, Exchange, Operation, OperationContext, OperationResult, RequestPolicy } from 'urql';
 
+import { print } from 'graphql';
 import {
   createRequest,
   makeOperation,
@@ -8,9 +9,12 @@ import {
   makeResult,
 } from '@urql/core';
 import { enableMapSet, produce } from 'immer';
-import { filter, fromArray, interval, makeSubject, merge, mergeMap, pipe, share, subscribe, tap } from 'wonka';
+import { buffer, filter, fromArray, fromPromise, makeSubject, merge, mergeMap, pipe, share, skipUntil, subscribe, tap, Source } from 'wonka';
 
 import { get as lGet, isArray, values, keyBy, mergeWith, set as lSet } from 'lodash';
+import type { StorageAdapter } from '@urql/exchange-graphcache';
+
+import { PROCESSED_OPERATION_KEY } from './timestampExchange';
 
 enableMapSet();
 
@@ -40,6 +44,8 @@ export const isDeadlockMutation = (error: undefined | CombinedError) => {
 
 export type CrdtExchangeOpts =  {
   isRetryableError: (res: OperationResult) => boolean;
+  storage: StorageAdapter,
+  sendTrigger$: Source<number>,
 }
 
 /**
@@ -309,6 +315,8 @@ class CrdtManager {
   #client: Client;
   #next: (op: Operation) => void;
   #options: CrdtExchangeOpts;
+  #storage: StorageAdapter;
+  #sendTrigger$: Source<number>;
 
   #mutations = new Map<MutationOperation['key'], MutationOperation>();
   #queries = new Map<QueryOperation['key'], QueryOperation>();
@@ -316,35 +324,22 @@ class CrdtManager {
   #optimisticState: MergedCrdtObjectStore = new Map();
   #unsubscribe: null | (() => void) = null;
 
+  hydration: Promise<void>;
+
   constructor(client: Client, next: (op: Operation) => void, options: CrdtExchangeOpts) {
     this.#client = client;
     this.#next = next;
     this.#options = options;
+    this.#storage = options.storage;
+    this.#sendTrigger$ = options.sendTrigger$;
+
+    this.hydration = this.rehydrate();
   }
 
-  // TODO allow adding mutations in bulk so we can update optimistic state and execute dependent queries only once
   addMutation(mutation: MutationOperation) {
     this.#mutations.set(mutation.key, mutation);
-
-    this.updateOptimisticState([mutation]);
-
-    const dependentQueries = new Set<QueryOperation>();
-    this.collectDependentQueries(dependentQueries, mutation);
-    for (const dependentQuery of dependentQueries) {
-      this.#next(toRequestPolicy(dependentQuery, 'cache-only'));
-    }
-
-    if (!this.#unsubscribe) {
-      this.#unsubscribe = pipe(
-        interval(10000),
-        subscribe((n) => {
-          console.log(`processing mutations ${n}...`);
-          // TODO: we should send at a more rapid pace when stuck doing only one mutation a time
-          this.sendMutations();
-        }),
-      ).unsubscribe;
-    }
-    return this;
+    this.persistMutations();
+    this.processMutations([mutation]);
   }
 
   addQuery(query: QueryOperation) {
@@ -401,6 +396,7 @@ class CrdtManager {
             }
           }) as MutationOperation);
         }
+        this.persistMutations();
 
         return [];
       } else if (!isRetryableError && hasFailedBefore) {
@@ -515,6 +511,73 @@ class CrdtManager {
     }
   }
 
+  private persistMutations() {
+    console.log('persistMutations', this.#mutations);
+    const mutationOps = Array.from(this.#mutations.values());
+
+    const contextFilter =
+      ({[PROCESSED_OPERATION_KEY]: processedOperationKey}: OperationContext) =>
+        ({[PROCESSED_OPERATION_KEY]: processedOperationKey});
+
+    const persistedMutations = mutationOps.map((mut) => {
+      return {
+        query: print(mut.query),
+        variables: mut.variables,
+        context: contextFilter(mut.context)
+      }
+    });
+    this.#storage.writeMetadata!(persistedMutations);
+  }
+
+  private async rehydrate() {
+    const mutationsFromStorage = await this.#storage.readMetadata!()
+    if (mutationsFromStorage) {
+      const mutationsArray = mutationsFromStorage.map(
+        (mutationData) => {
+          const mutationOperation =
+            this.#client.createRequestOperation(
+              'mutation',
+              createRequest(mutationData.query, mutationData.variables),
+              (mutationData as any).context,
+            ) as MutationOperation;
+          this.#mutations.set(
+            mutationOperation.key,
+            mutationOperation,
+          );
+          return mutationOperation;
+        });
+      this.processMutations(mutationsArray);
+    }
+  }
+
+  private processMutations(mutations: MutationOperation[]) {
+    if (mutations.length === 0) {
+      return this;
+    }
+    const dependentQueries = new Set<QueryOperation>();
+    mutations.forEach((mutation) => {
+      this.collectDependentQueries(dependentQueries, mutation);
+    });
+
+    this.updateOptimisticState(mutations);
+
+    for (const dependentQuery of dependentQueries) {
+      this.#next(toRequestPolicy(dependentQuery, 'cache-only'));
+    }
+
+    if (!this.#unsubscribe) {
+      this.#unsubscribe = pipe(
+        this.#sendTrigger$,
+        subscribe((n) => {
+          console.log(`processing mutations ${n}...`);
+          // TODO: we should send at a more rapid pace when stuck doing only one mutation a time
+          this.sendMutations();
+        }),
+      ).unsubscribe;
+    }
+    return this;
+  }
+
   private removeMutations(mutations: MutationOperation[]) {
     const dependentQueries = new Set<QueryOperation>();
     for (const mutation of mutations) {
@@ -524,6 +587,8 @@ class CrdtManager {
         this.collectDependentQueries(dependentQueries, mutation);
       }
     }
+
+    this.persistMutations();
 
     if (this.#mutations.size === 0 && this.#unsubscribe) {
       this.#unsubscribe();
@@ -578,6 +643,31 @@ export const crdtExchange = <C extends CrdtExchangeOpts>(
       filter(operation => {
         return isCrdtOperation(operation);
       }),
+      share,
+    );
+
+    const crdtMutations$ = pipe(
+      // Buffer CRDT Mutations until the crdtManager is rehydrated.
+      merge([
+        pipe(
+          crdtOperations$,
+          filter(operation => operation.kind === 'mutation'),
+          buffer(fromPromise(crdtManager.hydration)),
+          mergeMap(fromArray),
+        ),
+        pipe(
+          crdtOperations$,
+          filter(operation => operation.kind === 'mutation'),
+          skipUntil(fromPromise(crdtManager.hydration)),
+        )
+      ]),
+      tap(operation => crdtManager.addMutation(operation as MutationOperation)),
+      filter(_ => false),
+    );
+
+    const crdtNonMutations$ = pipe(
+      crdtOperations$,
+      filter(operation => operation.kind !== 'mutation'),
       tap(operation => {
         switch (operation.kind) {
           case 'query':
@@ -587,17 +677,9 @@ export const crdtExchange = <C extends CrdtExchangeOpts>(
             // TODO: teardowns for mutations? can they happen? when?
             crdtManager.teardown(operation);
             break;
-          }
-      }),
-      filter(operation => {
-        if (operation.kind === 'mutation') {
-          crdtManager.addMutation(operation as MutationOperation);
-          return false;
         }
-
-        return true;
-      })
-    );
+      }),
+    )
 
     const nonCrdtOperations$ = pipe(
       sharedOps$,
@@ -606,7 +688,7 @@ export const crdtExchange = <C extends CrdtExchangeOpts>(
       }),
     );
 
-    const opsAndRebound$ = merge([reboundOps$, crdtOperations$, nonCrdtOperations$]);
+    const opsAndRebound$ = merge([reboundOps$, crdtMutations$, crdtNonMutations$, nonCrdtOperations$]);
 
     const results$ = pipe(
       pipe(
