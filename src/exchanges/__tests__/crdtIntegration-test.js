@@ -438,6 +438,7 @@ describe('crdtExchange', () => {
         // result - 3: result from mutation forwarded through exchanges
         expect(result.mock.calls[3][0].operation.kind).toEqual('mutation');
         expect(result.mock.calls[3][0].data).toEqual(createInspection.serverCreateResult);
+        expect(result.mock.calls[3][0].operation.key).toEqual(createInspectionMutationKey);
     })
 
     it('combines optimistic mutations with cache results for queries', async () => {
